@@ -12,12 +12,21 @@ type LogEntry struct {
 }
 
 type ServerState struct {
+	// persist state, update before respond to rpc
 	currentTerm uint32
 	votedFor    uint32
 	log         []LogEntry
+
+	// versatile state
+	commitedIndex uint32
+	lastApplied   uint32
 }
 
-func persistState() {
+type LeaderState struct {
+	serverState ServerState
+	// volatile state
+	nextIndex  []uint32
+	matchIndex []uint32
 }
 
 func main() {

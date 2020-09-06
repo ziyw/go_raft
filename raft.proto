@@ -1,0 +1,37 @@
+syntax = "proto3"
+
+option go_package = "github.com/ziyan/go_raft"
+
+package main;
+
+service RaftService {
+
+  rpc AppendEntries (AppendArg) returns (AppendRes) {} ; 
+  
+  rpc RequestVote (VoteArg) returns (VoteRes) {} ;
+}
+
+message AppendArg {
+  uint32 term = 1;
+  uint32 leader_id = 2;
+  uint32 prev_log_index = 3; 
+  uint32 prev_log_term = 4;
+  uint32 leader_commit = 5;
+  repeated Entry entry = 6; 
+} 
+
+message Entry {
+  string command = 1;
+  uint32 term = 2; 
+}
+
+message AppendRes {
+  uint32 term = 1;
+  bool success = 2; 
+} 
+
+message VoteArg {} 
+
+message VoteRes {} 
+
+
