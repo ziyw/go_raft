@@ -6,7 +6,6 @@ import (
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"log"
-	"math"
 	"net"
 	"os"
 )
@@ -25,12 +24,7 @@ type Server struct {
 	// persist states, TODO: need to write those to file
 	currentTerm uint32
 	votedFor    uint32
-	log         []LogEntry
-}
-
-type LogEntry struct {
-	command string
-	term    uint32
+	log         []Entry
 }
 
 func (s *Server) Start() {
@@ -55,27 +49,27 @@ func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes,
 	}
 
 	// rule 2:
-	if s.log[arg.PrevLogIndex].term != arg.PrevLogTerm {
+	if s.log[arg.PrevLogIndex].Term != arg.PrevLogTerm {
 		res.Success = false
 		return &res, nil
 	}
 
 	// rule 3:Q: how to tell the difference of indexes
-	for index, entry := range arg.Entry {
-		if s.log[index].term != entry.Term {
+	for index, entry := range arg.Entries {
+		if s.log[index].Term != entry.Term {
 			s.log = s.log[:index]
 		}
 	}
 
 	// rule 4: // TODO: make this two transpotable)
-	s.log = append(s.log, arg.Entry)
+	// s.log = append(s.log, arg.Entries)
 
 	// rule 5:
-	if arg.LeaderCommit > s.commitedIndex {
-		if arg.LeaderCommit > len(s.log) {
-			s.commitIndex = arg.LeaderCommited
-		}
-	}
+	// if arg.LeaderCommit > s.commitedIndex {
+	//		if arg.LeaderCommit > len(s.log) {
+	//			s.commitIndex = arg.LeaderCommited
+	//		}
+	//	}
 	return &res, nil
 }
 
@@ -104,11 +98,13 @@ func main() {
 	s1 := Server{Name: "NodeOne", Addr: "localhost:60001"}
 	s2 := Server{Name: "NodeTwo", Addr: "localhost:60002"}
 
-	s1.log = make([]LogEntry, 10)
-	s2.log = make([]LogEntry, 10)
+	s1.log = make([]Entry, 10)
+	s2.log = make([]Entry, 10)
 
 	go s1.Start()
 	go s2.Start()
+
+	s1.SendAppendRequest(s2)
 
 }
 
