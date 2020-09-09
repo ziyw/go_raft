@@ -90,11 +90,11 @@ func (s *Server) SendAppendRequest(other Server) {
 	if err != nil {
 		log.Fatalf("Service Failed %v", err)
 	}
-	log.Println("Reply %s", r.Term)
+
+	log.Println("Receive respond: ", r.Term, r.Success)
 }
 
-func main() {
-
+func setup() {
 	s1 := Server{Name: "NodeOne", Addr: "localhost:60001"}
 	s2 := Server{Name: "NodeTwo", Addr: "localhost:60002"}
 
@@ -105,7 +105,12 @@ func main() {
 	go s2.Start()
 
 	s1.SendAppendRequest(s2)
+}
 
+func main() {
+	WriteInt("currentTerm", 200)
+	result := ReadInt("currentTerm")
+	log.Println(result)
 }
 
 func fileIo() {
