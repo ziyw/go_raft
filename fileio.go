@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -28,4 +29,21 @@ func WriteInt(file string, content int) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func fileIo() {
+	f, err := os.Create("data.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	data := []byte("HelloWorld\n")
+	err = ioutil.WriteFile("data", data, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Finish")
+
 }
