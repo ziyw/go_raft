@@ -6,6 +6,7 @@ import (
 )
 
 // unit test for file io
+// TODO: need a better test cases for this
 
 func TestReadSingleValueFromFile(t *testing.T) {}
 
@@ -24,4 +25,10 @@ func TestAppendLine(t *testing.T) {
 	AppendLine(f, l2)
 	result := ReadLines(f)
 	fmt.Printf("%#v", result)
+}
+
+func TestWriteLine(t *testing.T) {
+	WriteLine("test_write.txt", "One Line")
+	WriteLine("test_write.txt", "One Line")
+	WriteLine("test_write.txt", "One Line")
 }

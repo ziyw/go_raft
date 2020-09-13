@@ -11,32 +11,27 @@ import (
 	_ "strings"
 )
 
-func AppendLine(file string, content string) {
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+func check(err error) {
 	if err != nil {
-		log.Fatal(err)
-	}
-	if _, err := f.Write([]byte(content)); err != nil {
-		f.Close()
-		log.Fatal(err)
-	}
-	if err := f.Close(); err != nil {
 		log.Fatal(err)
 	}
 }
 
+func AppendLine(file string, content string) {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	check(err)
+	defer f.Close()
+	_, err = f.Write([]byte(content))
+	check(err)
+}
+
 func WriteLine(file string, content string) {
-	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if _, err := f.Write([]byte(content)); err != nil {
-		f.Close()
-		log.Fatal(err)
-	}
-	if err := f.Close(); err != nil {
-		log.Fatal(err)
-	}
+	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE, 0644)
+	check(err)
+	defer f.Close()
+
+	_, err = f.Write([]byte(content))
+	check(err)
 }
 
 func ReadLines(file string) []string {
@@ -46,7 +41,6 @@ func ReadLines(file string) []string {
 
 	// limit of lines, not allow big files
 	result := make([]string, 0, 100)
-
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		result = append(result, string(scanner.Bytes()))
@@ -55,12 +49,6 @@ func ReadLines(file string) []string {
 	err = scanner.Err()
 	check(err)
 	return result
-}
-
-func check(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 // TODO: parse string to Entries
