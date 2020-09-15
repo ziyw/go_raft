@@ -16,8 +16,8 @@ type Server struct {
 	matchIndex []uint32
 
 	// common server state
-	commitedIndex uint32
-	lastApplied   uint32
+	commitIndex uint32
+	lastApplied uint32
 
 	// persist states, TODO: need to write those to file
 	currentTerm uint32
