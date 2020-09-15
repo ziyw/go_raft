@@ -1,11 +1,16 @@
 package main
 
 import (
-	"golang.org/x/net/context"
+	"fmt"
+	_ "golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"log"
 	"net"
 )
+
+type Node interface {
+	Start()
+	IsLeader() bool
+}
 
 type Server struct {
 	Name string
@@ -26,33 +31,15 @@ type Server struct {
 }
 
 func (s *Server) Start() {
+	fmt.Printf("Start server binding Name: %s Addr: %s\n", s.Name, s.Addr)
+
 	lis, err := net.Listen("tcp", s.Addr)
-	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
-	}
+	Check(err)
 
 	_s := grpc.NewServer()
 	RegisterRaftServiceServer(_s, s)
-	if err := _s.Serve(lis); err != nil {
-		log.Fatalf("Failed to server %v", err)
-	}
-}
-
-func (s *Server) SendAppendRequest(other Server) {
-	conn, err := grpc.Dial(other.Addr, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("Connection error %v", err)
-	}
-	defer conn.Close()
-
-	client := NewRaftServiceClient(conn)
-	req := AppendArg{}
-	r, err := client.AppendEntries(context.Background(), &req)
-	if err != nil {
-		log.Fatalf("Service Failed %v", err)
-	}
-
-	log.Println("Receive respond: ", r.Term, r.Success)
+	err = _s.Serve(lis)
+	Check(err)
 }
 
 // TODO
