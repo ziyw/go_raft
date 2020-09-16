@@ -26,7 +26,7 @@ type Server struct {
 
 	// persist states, TODO: need to write those to file
 	currentTerm uint32
-	votedFor    uint32
+	votedFor    int // when int < 0, is nil
 	log         []Entry
 }
 
@@ -41,9 +41,6 @@ func (s *Server) Start() {
 	err = _s.Serve(lis)
 	Check(err)
 }
-
-// TODO
-func (s *Server) SendRequestVote(other Server) {}
 
 // TODO
 func (s Server) IsLeader() bool { return false }
