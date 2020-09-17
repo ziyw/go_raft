@@ -65,6 +65,7 @@ func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes,
 		return &res, nil
 	}
 
+	// TODO: this is wrong check later
 	if len(s.log) == 0 {
 		return &res, nil
 	}
