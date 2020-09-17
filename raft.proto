@@ -12,34 +12,34 @@ service RaftService {
 }
 
 message AppendArg {
-  uint32 term = 1;
-  uint32 leader_id = 2;
-  uint32 prev_log_index = 3; 
-  uint32 prev_log_term = 4;
-  uint32 leader_commit = 5;
+  int64 term = 1;
+  int64 leader_id = 2;
+  int64 prev_log_index = 3; 
+  int64 prev_log_term = 4;
+  int64 leader_commit = 5;
   repeated Entry entries = 6; 
 } 
 
 
 message Entry {
   string command = 1;
-  uint32 term = 2; 
+  int64 term = 2; 
 }
 
 message AppendRes {
-  uint32 term = 1;
+  int64 term = 1;
   bool success = 2; 
 } 
 
 message VoteArg {
-  uint32 term = 1;
-  uint32 candidate_id = 2; 
-  uint32 last_log_index = 3; 
-  uint32 last_log_term = 4; 
+  int64 term = 1;
+  int64 candidate_id = 2; 
+  int64 last_log_index = 3; 
+  int64 last_log_term = 4; 
 } 
 
 message VoteRes{
-  uint32 term = 1;
+  int64 term = 1;
   bool vote_granted = 2; 
 } 
 

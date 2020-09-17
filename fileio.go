@@ -25,18 +25,24 @@ func AppendLine(file string, content string) {
 	check(err)
 }
 
-func WriteLine(file string, content string) {
+func WriteLine(file string, content string) error {
 	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE, 0644)
-	check(err)
+	if err != nil {
+		return err
+	}
 	defer f.Close()
 
-	_, err = f.Write([]byte(content))
-	check(err)
+	if _, err := f.Write([]byte(content)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func ReadLines(file string) []string {
+func ReadLines(file string) ([]string, error) {
 	f, err := os.Open(file)
-	check(err)
+	if err != nil {
+		return make([]string, 0), nil
+	}
 	defer f.Close()
 
 	// limit of lines, not allow big files
@@ -47,8 +53,7 @@ func ReadLines(file string) []string {
 	}
 
 	err = scanner.Err()
-	check(err)
-	return result
+	return result, nil
 }
 
 // TODO: parse string to Entries

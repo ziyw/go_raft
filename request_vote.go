@@ -19,7 +19,7 @@ func (s *Server) RequestVote(ctx context.Context, arg *VoteArg) (*VoteRes, error
 	}
 
 	// TODO: this implementation is not full
-	if s.votedFor == -1 || s.votedFor == int(arg.CandidateId) {
+	if s.votedFor == -1 || s.votedFor == arg.CandidateId {
 		res.VoteGranted = true
 		return &res, nil
 	}

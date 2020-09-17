@@ -4,30 +4,31 @@ import (
 	"fmt"
 	_ "golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"log"
 	"net"
+	"strconv"
+	"strings"
 )
-
-type Node interface {
-	Start()
-	IsLeader() bool
-}
 
 type Server struct {
 	Name string
 	Addr string
 
-	// leader state
-	nextIndex  []uint32
-	matchIndex []uint32
-
-	// common server state
-	commitIndex uint32
-	lastApplied uint32
+	IsLeader bool
 
 	// persist states, TODO: need to write those to file
-	currentTerm uint32
-	votedFor    int // when int < 0, is nil
-	log         []Entry
+	// TODO: current version, use in memory version
+	currentTerm int64
+	votedFor    int64 // when int < 0, is nil
+	log         []*Entry
+
+	// leader state
+	nextIndex  []int
+	matchIndex []int
+
+	// common server state
+	commitIndex int
+	lastApplied int
 }
 
 func (s *Server) Start() {
@@ -42,5 +43,24 @@ func (s *Server) Start() {
 	Check(err)
 }
 
-// TODO
-func (s Server) IsLeader() bool { return false }
+func (s *Server) SetCommitIndex(term int64) {
+	if err := WriteLine(s.Name+"CommitIndex", string(term)); err != nil {
+		log.Fatal(err)
+	}
+	s.currentTerm = term
+}
+
+func (s *Server) CommitIndex() int64 {
+	line, err := ReadLines(s.Name + "CommitIndex")
+	if err != nil {
+		log.Fatal(err)
+		return 0
+	}
+
+	result := strings.Trim(line[0], "\n")
+	if term, err := strconv.ParseInt(result, 10, 64); err != nil {
+		return 0
+	} else {
+		return int64(term)
+	}
+}

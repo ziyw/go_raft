@@ -37,9 +37,8 @@ func main() {
 	}
 
 	fmt.Printf("Send request %v", req)
-	r, err := leader.SendAppendRequest(f1, req)
-	Check(err)
-	fmt.Printf("Receive reponse %v", r)
+	f := []Server{f1, f2, f3}
+	leader.SendAppendRequest(&f)
 
 	// 	followers := []Server{f1, f2, f3}
 	//
