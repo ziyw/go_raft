@@ -31,7 +31,7 @@ type Server struct {
 	lastApplied int
 }
 
-func (s *Server) Start() {
+func (s *Server) Start(success chan string) {
 	fmt.Printf("Start server binding Name: %s Addr: %s\n", s.Name, s.Addr)
 
 	lis, err := net.Listen("tcp", s.Addr)
@@ -39,6 +39,7 @@ func (s *Server) Start() {
 
 	_s := grpc.NewServer()
 	RegisterRaftServiceServer(_s, s)
+	success <- s.Name
 	err = _s.Serve(lis)
 	Check(err)
 }
