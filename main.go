@@ -5,14 +5,7 @@ import (
 	"log"
 )
 
-func Check(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func main() {
-	done := make(chan int)
 
 	testLog := []*Entry{
 		&Entry{Term: 1, Command: "Hello"},
@@ -33,21 +26,33 @@ func main() {
 	f1 := Server{Name: "NodeOne", Addr: "localhost:30002"}
 	f2 := Server{Name: "NodeTwo", Addr: "localhost:30003"}
 	f3 := Server{Name: "NodeThree", Addr: "localhost:30004"}
-
-	r := make(chan int)
 	s := []Server{leader, f1, f2, f3}
-	go startAll(done, s)
+
+	allDone := make(chan int)
 	go func() {
-		select {
-		case <-done:
-			go leader.SendAppendRequest(&[]Server{f1, f2, f3}, r)
+
+		startDone := make(chan int)
+		appendDone := make(chan int)
+		voteDone := make(chan int)
+
+		go startAll(s, startDone)
+
+		for {
+			select {
+			case <-startDone:
+				go leader.SendAppendRequest(&[]Server{f1, f2, f3}, appendDone)
+			case <-appendDone:
+				go leader.Vote(&[]Server{f1, f2, f3}, voteDone)
+			case <-voteDone:
+				allDone <- 1
+			}
 		}
 	}()
 
-	<-r
+	<-allDone
 }
 
-func startAll(done chan int, servers []Server) {
+func startAll(servers []Server, done chan int) {
 	count := make(chan int)
 	for i := 0; i < len(servers); i++ {
 		go servers[i].Start(count)

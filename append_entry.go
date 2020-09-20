@@ -39,7 +39,9 @@ func (s *Server) SendAppendRequest(servers *[]Server, done chan int) {
 		}
 
 		conn, err := grpc.Dial(f.Addr, grpc.WithInsecure())
-		Check(err)
+		if err != nil {
+			log.Fatal(err)
+		}
 		defer conn.Close()
 		client := NewRaftServiceClient(conn)
 

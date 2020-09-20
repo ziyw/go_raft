@@ -13,6 +13,7 @@ import (
 type Server struct {
 	Name string
 	Addr string
+	Id   int
 
 	IsLeader bool
 
@@ -34,12 +35,16 @@ type Server struct {
 func (s *Server) Start(done chan int) {
 	log.Printf("%s Start\n", s.Name)
 	lis, err := net.Listen("tcp", s.Addr)
-	Check(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	_s := grpc.NewServer()
 	RegisterRaftServiceServer(_s, s)
 	done <- 1
 	err = _s.Serve(lis)
-	Check(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	done <- 1
 }
 
