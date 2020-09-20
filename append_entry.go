@@ -19,22 +19,21 @@ import (
 // 	return client.AppendEntries(context.Background(), &req)
 // }
 //
-func (s *Server) SendAppendRequest(servers *[]Server) {
-	followers := *servers
 
-	s.log = []*Entry{
-		&Entry{Term: 1, Command: "Hello"},
-		&Entry{Term: 1, Command: "World"},
-	}
+func (s *Server) SendAppendRequest(servers *[]Server, done chan int) {
+	log.Printf("Start Sending Append Request\n")
+
+	followers := *servers
 
 	s.nextIndex = make([]int, len(followers))
 	s.matchIndex = make([]int, len(followers))
 	for i := 0; i < len(followers); i++ {
-		s.nextIndex[i] = len(s.log) + 1
+		s.nextIndex[i] = len(s.log) - 1
 		s.matchIndex[i] = 0
 	}
 
 	for i, f := range followers {
+		log.Printf("Start Send Request to %s", f.Name)
 		if len(s.log) < int(s.nextIndex[i]) {
 			continue
 		}
@@ -63,7 +62,7 @@ func (s *Server) SendAppendRequest(servers *[]Server) {
 				s.matchIndex[i] = s.commitIndex
 				break
 			}
-			// fail reponsd (resend)
+
 			s.nextIndex[i]--
 
 			request := AppendArg{
@@ -76,8 +75,8 @@ func (s *Server) SendAppendRequest(servers *[]Server) {
 			reply, _ = client.AppendEntries(context.Background(), &request)
 			log.Printf("Server %s Receive Reply %v\n", s.Name, reply)
 		}
-
 	}
+	done <- 1
 }
 
 func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes, error) {
@@ -87,6 +86,12 @@ func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes,
 
 	if arg.Term < s.currentTerm {
 		res.Success = false
+		return &res, nil
+	}
+
+	if len(s.log) == 0 {
+		res.Success = true
+		s.log = arg.Entries
 		return &res, nil
 	}
 

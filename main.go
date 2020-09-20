@@ -13,33 +13,60 @@ func Check(err error) {
 
 func main() {
 	done := make(chan int)
-	leader := Server{Name: "Leader", Addr: "localhost:30001"}
+
+	testLog := []*Entry{
+		&Entry{Term: 1, Command: "Hello"},
+		&Entry{Term: 1, Command: "World"},
+	}
+
+	leader := Server{
+		Name:        "Leader",
+		Addr:        "localhost:30001",
+		IsLeader:    true,
+		currentTerm: 1,
+		votedFor:    -1,
+		log:         testLog,
+		commitIndex: len(testLog) - 1,
+		lastApplied: len(testLog) - 1,
+	}
+
 	f1 := Server{Name: "NodeOne", Addr: "localhost:30002"}
 	f2 := Server{Name: "NodeTwo", Addr: "localhost:30003"}
 	f3 := Server{Name: "NodeThree", Addr: "localhost:30004"}
 
-	start := make(chan string)
-
-	go leader.Start(start)
-	go f1.Start(start)
-	go f2.Start(start)
-	go f3.Start(start)
-
-	count := 0
-	select {
-	case x := <-start:
-		log.Printf("Build %s\n", x)
-		count++
-		log.Printf("Started %d\n", count)
-		f := []Server{f1, f2, f3}
-		if count == 3 {
-			leader.SendAppendRequest(&f)
+	r := make(chan int)
+	s := []Server{leader, f1, f2, f3}
+	go startAll(done, s)
+	go func() {
+		select {
+		case <-done:
+			go leader.SendAppendRequest(&[]Server{f1, f2, f3}, r)
 		}
-		done <- 1
-	default:
-		log.Println("Waiting")
+	}()
+
+	<-r
+}
+
+func startAll(done chan int, servers []Server) {
+	count := make(chan int)
+	for i := 0; i < len(servers); i++ {
+		go servers[i].Start(count)
 	}
 
-	<-done
+	go func() {
+		running := 0
+		for {
+			select {
+			case <-count:
+				log.Printf("Done ONE")
+				running++
+				if running == len(servers) {
+					log.Printf("All server started\n")
+					done <- 1
+					return
+				}
+			}
+		}
 
+	}()
 }

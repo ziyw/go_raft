@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	_ "fmt"
 	_ "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
@@ -31,17 +31,16 @@ type Server struct {
 	lastApplied int
 }
 
-func (s *Server) Start(success chan string) {
-	fmt.Printf("Start server binding Name: %s Addr: %s\n", s.Name, s.Addr)
-
+func (s *Server) Start(done chan int) {
+	log.Printf("%s Start\n", s.Name)
 	lis, err := net.Listen("tcp", s.Addr)
 	Check(err)
-
 	_s := grpc.NewServer()
 	RegisterRaftServiceServer(_s, s)
-	success <- s.Name
+	done <- 1
 	err = _s.Serve(lis)
 	Check(err)
+	done <- 1
 }
 
 func (s *Server) SetCommitIndex(term int64) {
