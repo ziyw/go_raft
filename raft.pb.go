@@ -352,6 +352,108 @@ func (x *VoteRes) GetVoteGranted() bool {
 	return false
 }
 
+type QueryArg struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Command string `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
+}
+
+func (x *QueryArg) Reset() {
+	*x = QueryArg{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_raft_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *QueryArg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryArg) ProtoMessage() {}
+
+func (x *QueryArg) ProtoReflect() protoreflect.Message {
+	mi := &file_raft_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryArg.ProtoReflect.Descriptor instead.
+func (*QueryArg) Descriptor() ([]byte, []int) {
+	return file_raft_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *QueryArg) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+type QueryRes struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Reply   string `protobuf:"bytes,2,opt,name=reply,proto3" json:"reply,omitempty"`
+}
+
+func (x *QueryRes) Reset() {
+	*x = QueryRes{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_raft_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *QueryRes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryRes) ProtoMessage() {}
+
+func (x *QueryRes) ProtoReflect() protoreflect.Message {
+	mi := &file_raft_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryRes.ProtoReflect.Descriptor instead.
+func (*QueryRes) Descriptor() ([]byte, []int) {
+	return file_raft_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *QueryRes) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *QueryRes) GetReply() string {
+	if x != nil {
+		return x.Reply
+	}
+	return ""
+}
+
 var File_raft_proto protoreflect.FileDescriptor
 
 var file_raft_proto_rawDesc = []byte{
@@ -389,17 +491,26 @@ var file_raft_proto_rawDesc = []byte{
 	0x73, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x65, 0x72, 0x6d, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52,
 	0x04, 0x74, 0x65, 0x72, 0x6d, 0x12, 0x21, 0x0a, 0x0c, 0x76, 0x6f, 0x74, 0x65, 0x5f, 0x67, 0x72,
 	0x61, 0x6e, 0x74, 0x65, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x76, 0x6f, 0x74,
-	0x65, 0x47, 0x72, 0x61, 0x6e, 0x74, 0x65, 0x64, 0x32, 0x71, 0x0a, 0x0b, 0x52, 0x61, 0x66, 0x74,
-	0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x33, 0x0a, 0x0d, 0x41, 0x70, 0x70, 0x65, 0x6e,
-	0x64, 0x45, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x12, 0x0f, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x2e,
-	0x41, 0x70, 0x70, 0x65, 0x6e, 0x64, 0x41, 0x72, 0x67, 0x1a, 0x0f, 0x2e, 0x6d, 0x61, 0x69, 0x6e,
-	0x2e, 0x41, 0x70, 0x70, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x22, 0x00, 0x12, 0x2d, 0x0a, 0x0b,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x56, 0x6f, 0x74, 0x65, 0x12, 0x0d, 0x2e, 0x6d, 0x61,
-	0x69, 0x6e, 0x2e, 0x56, 0x6f, 0x74, 0x65, 0x41, 0x72, 0x67, 0x1a, 0x0d, 0x2e, 0x6d, 0x61, 0x69,
-	0x6e, 0x2e, 0x56, 0x6f, 0x74, 0x65, 0x52, 0x65, 0x73, 0x22, 0x00, 0x42, 0x1f, 0x5a, 0x1d, 0x67,
-	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x7a, 0x69, 0x79, 0x61, 0x6e, 0x2f,
-	0x67, 0x6f, 0x5f, 0x72, 0x61, 0x66, 0x74, 0x2f, 0x6d, 0x61, 0x69, 0x6e, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x47, 0x72, 0x61, 0x6e, 0x74, 0x65, 0x64, 0x22, 0x24, 0x0a, 0x08, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x41, 0x72, 0x67, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x22, 0x3a,
+	0x0a, 0x08, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x73, 0x75,
+	0x63, 0x63, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x73, 0x75, 0x63,
+	0x63, 0x65, 0x73, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x72, 0x65, 0x70, 0x6c, 0x79, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x05, 0x72, 0x65, 0x70, 0x6c, 0x79, 0x32, 0x9c, 0x01, 0x0a, 0x0b, 0x52,
+	0x61, 0x66, 0x74, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x33, 0x0a, 0x0d, 0x41, 0x70,
+	0x70, 0x65, 0x6e, 0x64, 0x45, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x12, 0x0f, 0x2e, 0x6d, 0x61,
+	0x69, 0x6e, 0x2e, 0x41, 0x70, 0x70, 0x65, 0x6e, 0x64, 0x41, 0x72, 0x67, 0x1a, 0x0f, 0x2e, 0x6d,
+	0x61, 0x69, 0x6e, 0x2e, 0x41, 0x70, 0x70, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x73, 0x22, 0x00, 0x12,
+	0x2d, 0x0a, 0x0b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x56, 0x6f, 0x74, 0x65, 0x12, 0x0d,
+	0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x56, 0x6f, 0x74, 0x65, 0x41, 0x72, 0x67, 0x1a, 0x0d, 0x2e,
+	0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x56, 0x6f, 0x74, 0x65, 0x52, 0x65, 0x73, 0x22, 0x00, 0x12, 0x29,
+	0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x0e, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x51,
+	0x75, 0x65, 0x72, 0x79, 0x41, 0x72, 0x67, 0x1a, 0x0e, 0x2e, 0x6d, 0x61, 0x69, 0x6e, 0x2e, 0x51,
+	0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x73, 0x22, 0x00, 0x42, 0x1f, 0x5a, 0x1d, 0x67, 0x69, 0x74,
+	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x7a, 0x69, 0x79, 0x61, 0x6e, 0x2f, 0x67, 0x6f,
+	0x5f, 0x72, 0x61, 0x66, 0x74, 0x2f, 0x6d, 0x61, 0x69, 0x6e, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
 var (
@@ -414,22 +525,26 @@ func file_raft_proto_rawDescGZIP() []byte {
 	return file_raft_proto_rawDescData
 }
 
-var file_raft_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_raft_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_raft_proto_goTypes = []interface{}{
 	(*AppendArg)(nil), // 0: main.AppendArg
 	(*Entry)(nil),     // 1: main.Entry
 	(*AppendRes)(nil), // 2: main.AppendRes
 	(*VoteArg)(nil),   // 3: main.VoteArg
 	(*VoteRes)(nil),   // 4: main.VoteRes
+	(*QueryArg)(nil),  // 5: main.QueryArg
+	(*QueryRes)(nil),  // 6: main.QueryRes
 }
 var file_raft_proto_depIdxs = []int32{
 	1, // 0: main.AppendArg.entries:type_name -> main.Entry
 	0, // 1: main.RaftService.AppendEntries:input_type -> main.AppendArg
 	3, // 2: main.RaftService.RequestVote:input_type -> main.VoteArg
-	2, // 3: main.RaftService.AppendEntries:output_type -> main.AppendRes
-	4, // 4: main.RaftService.RequestVote:output_type -> main.VoteRes
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
+	5, // 3: main.RaftService.Query:input_type -> main.QueryArg
+	2, // 4: main.RaftService.AppendEntries:output_type -> main.AppendRes
+	4, // 5: main.RaftService.RequestVote:output_type -> main.VoteRes
+	6, // 6: main.RaftService.Query:output_type -> main.QueryRes
+	4, // [4:7] is the sub-list for method output_type
+	1, // [1:4] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -501,6 +616,30 @@ func file_raft_proto_init() {
 				return nil
 			}
 		}
+		file_raft_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*QueryArg); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_raft_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*QueryRes); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -508,7 +647,7 @@ func file_raft_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_raft_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
@@ -536,6 +675,7 @@ const _ = grpc.SupportPackageIsVersion6
 type RaftServiceClient interface {
 	AppendEntries(ctx context.Context, in *AppendArg, opts ...grpc.CallOption) (*AppendRes, error)
 	RequestVote(ctx context.Context, in *VoteArg, opts ...grpc.CallOption) (*VoteRes, error)
+	Query(ctx context.Context, in *QueryArg, opts ...grpc.CallOption) (*QueryRes, error)
 }
 
 type raftServiceClient struct {
@@ -564,10 +704,20 @@ func (c *raftServiceClient) RequestVote(ctx context.Context, in *VoteArg, opts .
 	return out, nil
 }
 
+func (c *raftServiceClient) Query(ctx context.Context, in *QueryArg, opts ...grpc.CallOption) (*QueryRes, error) {
+	out := new(QueryRes)
+	err := c.cc.Invoke(ctx, "/main.RaftService/Query", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RaftServiceServer is the server API for RaftService service.
 type RaftServiceServer interface {
 	AppendEntries(context.Context, *AppendArg) (*AppendRes, error)
 	RequestVote(context.Context, *VoteArg) (*VoteRes, error)
+	Query(context.Context, *QueryArg) (*QueryRes, error)
 }
 
 // UnimplementedRaftServiceServer can be embedded to have forward compatible implementations.
@@ -579,6 +729,9 @@ func (*UnimplementedRaftServiceServer) AppendEntries(context.Context, *AppendArg
 }
 func (*UnimplementedRaftServiceServer) RequestVote(context.Context, *VoteArg) (*VoteRes, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestVote not implemented")
+}
+func (*UnimplementedRaftServiceServer) Query(context.Context, *QueryArg) (*QueryRes, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
 }
 
 func RegisterRaftServiceServer(s *grpc.Server, srv RaftServiceServer) {
@@ -621,6 +774,24 @@ func _RaftService_RequestVote_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RaftService_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryArg)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RaftServiceServer).Query(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/main.RaftService/Query",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RaftServiceServer).Query(ctx, req.(*QueryArg))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _RaftService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "main.RaftService",
 	HandlerType: (*RaftServiceServer)(nil),
@@ -632,6 +803,10 @@ var _RaftService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RequestVote",
 			Handler:    _RaftService_RequestVote_Handler,
+		},
+		{
+			MethodName: "Query",
+			Handler:    _RaftService_Query_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

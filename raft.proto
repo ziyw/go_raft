@@ -9,6 +9,8 @@ service RaftService {
   rpc AppendEntries (AppendArg) returns (AppendRes) {} ; 
 
   rpc RequestVote (VoteArg) returns (VoteRes) {} ;
+
+  rpc Query(QueryArg) returns (QueryRes) {} ; 
 }
 
 message AppendArg {
@@ -41,5 +43,15 @@ message VoteArg {
 message VoteRes{
   int64 term = 1;
   bool vote_granted = 2; 
+} 
+
+
+message QueryArg { 
+  string command = 1; 
+} 
+
+message QueryRes {
+  bool success = 1;
+  string reply = 2; 
 } 
 

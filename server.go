@@ -1,8 +1,8 @@
 package main
 
 import (
-	_ "fmt"
-	_ "golang.org/x/net/context"
+	"fmt"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -10,13 +10,19 @@ import (
 	"strings"
 )
 
+const (
+	Leader    = iota
+	Follower  = iota
+	Candidate = iota
+)
+
 type Server struct {
-	Name string
-	Addr string
-	Id   int
+	Name  string
+	Addr  string
+	Id    int
+	State int
 
-	IsLeader bool
-
+	group []Server
 	// persist states, TODO: need to write those to file
 	// TODO: current version, use in memory version
 	currentTerm int64
@@ -32,20 +38,38 @@ type Server struct {
 	lastApplied int
 }
 
-func (s *Server) Start(done chan int) {
-	log.Printf("%s Start\n", s.Name)
+func NewServer(name string, addr string, id int) *Server {
+	// TODO: replace log with log read from file
+	testLog := []*Entry{
+		&Entry{Term: 1, Command: "Hello"},
+		&Entry{Term: 1, Command: "World"},
+	}
+	return &Server{
+		Name:  name,
+		Addr:  addr,
+		Id:    id,
+		State: Follower,
+		// TODO: three of them should be replaced by persist read
+		currentTerm: 1, // TODO: replace with read term file
+		votedFor:    -1,
+		log:         testLog,
+		commitIndex: 0,
+		lastApplied: 0,
+	}
+
+}
+
+func (s *Server) Start() error {
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	_s := grpc.NewServer()
 	RegisterRaftServiceServer(_s, s)
-	done <- 1
-	err = _s.Serve(lis)
-	if err != nil {
-		log.Fatal(err)
+	if err := _s.Serve(lis); err != nil {
+		return err
 	}
-	done <- 1
+	return nil
 }
 
 func (s *Server) SetCommitIndex(term int64) {
@@ -68,4 +92,10 @@ func (s *Server) CommitIndex() int64 {
 	} else {
 		return int64(term)
 	}
+}
+
+// Query from normal clients.
+func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
+	r := fmt.Sprintf("%s says Hi", s.Name)
+	return &QueryRes{Success: true, Reply: r}, nil
 }
