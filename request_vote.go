@@ -6,6 +6,15 @@ import (
 	"log"
 )
 
+func (s *Server) CandidateAction() {
+	for i, f := range s.group {
+		if f.Name == s.Name {
+			continue
+		}
+
+	}
+}
+
 func (s *Server) SendVoteRequest(other Server, req VoteArg) (*VoteRes, error) {
 	conn, err := grpc.Dial(other.Addr, grpc.WithInsecure())
 	if err != nil {
