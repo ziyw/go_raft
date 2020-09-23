@@ -2,8 +2,10 @@ package main
 
 import (
 	_ "fmt"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 	"log"
-	_ "sync"
+	"sync"
 )
 
 func main() {
@@ -32,34 +34,30 @@ func main() {
 
 	done := make(chan struct{})
 
+	// Stage 1: get servers up and going.
+	// TODO: this might not be the best way to do this. Need to refine later.
 	s1 := NewServer("s1", "localhost:30001", 1)
 	s2 := NewServer("s2", "localhost:30002", 2)
 	s3 := NewServer("s3", "localhost:30003", 3)
 	s4 := NewServer("s4", "localhost:30004", 4)
 	s5 := NewServer("s5", "localhost:30005", 5)
-
-	doneStart := make(chan int)
 	group := []*Server{s1, s2, s3, s4, s5}
-	for i := 0; i < len(group); i++ {
-		go func(index int) {
-			s := group[index]
-			log.Println("### Starting Server " + s.Name)
-			if err := s.Start(); err != nil {
-				panic("Server Starting Error")
-			}
-			doneStart <- 1
-		}(i)
-	}
+
+	st1 := make(chan int)
+	go StageOne(group, st1)
+
+	st2 := make(chan int)
 
 	go func() {
-		started := 0
 		for {
 			select {
-			case <-doneStart:
-				started++
-				if started == len(group) {
-					log.Println("Servers are started")
-				}
+			case <-st1:
+				log.Println("### Stage 1 is done")
+				log.Println("### Start Stage 2###")
+				go StageTwo(group, st2)
+			case <-st2:
+				log.Println("### Stage 2 is done ###")
+
 			case <-done:
 				return
 			}
@@ -93,6 +91,56 @@ func main() {
 	//	}()
 	//
 	//	<-allDone
+}
+
+// Stage 1: Start all servers.
+// TODO: this is not the best way to count runnign servers. Need change.
+func StageOne(group []*Server, done chan int) {
+	log.Println("### Start Stage 1###")
+	var wg sync.WaitGroup
+
+	for i := 0; i < len(group); i++ {
+		wg.Add(1)
+		go func(index int) {
+			s := group[index]
+			log.Println("start server: " + s.Name)
+			wg.Done()
+			if err := s.Start(); err != nil {
+				panic("Server Starting Error")
+			}
+		}(i)
+	}
+	wg.Wait()
+	done <- 1
+}
+
+// Stage 2: normal clients send request to server.
+func StageTwo(group []*Server, done chan int) {
+	var wg sync.WaitGroup
+	for i := 0; i < len(group); i++ {
+		wg.Add(1)
+		go func(index int) {
+			req := QueryArg{Command: "Hello"}
+			if r, err := SendQueryRequest(group[index], &req); err != nil {
+				log.Fatal(err)
+			} else {
+				log.Printf("Receive reply from %s : %v", group[index].Name, r)
+			}
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	done <- 1
+}
+
+func SendQueryRequest(to *Server, req *QueryArg) (*QueryRes, error) {
+	conn, err := grpc.Dial(to.Addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	c := NewRaftServiceClient(conn)
+	return c.Query(context.Background(), req)
 }
 
 //func startAll(servers []Server, done chan int) {
