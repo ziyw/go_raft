@@ -47,17 +47,25 @@ func main() {
 	go StageOne(group, st1)
 
 	st2 := make(chan int)
-
+	st3 := make(chan int)
 	go func() {
 		for {
 			select {
 			case <-st1:
 				log.Println("### Stage 1 is done")
-				log.Println("### Start Stage 2###")
+				log.Println("### Stage 2 Start: Send query request from normal client. ###")
 				go StageTwo(group, st2)
 			case <-st2:
 				log.Println("### Stage 2 is done ###")
-
+				log.Println("### Stage 3 Start: Set leader in a group.  ###")
+				go StageThree(group, st3)
+			case <-st3:
+				if l, err := group[0].GetLeader(); err != nil {
+					log.Fatal(err)
+				} else {
+					log.Printf("Leader is %s\n", l.Name)
+				}
+				log.Println("### Stage 3 done###")
 			case <-done:
 				return
 			}
@@ -96,7 +104,7 @@ func main() {
 // Stage 1: Start all servers.
 // TODO: this is not the best way to count runnign servers. Need change.
 func StageOne(group []*Server, done chan int) {
-	log.Println("### Start Stage 1###")
+	log.Println("### Stage 1 Start: Setting up servers ###")
 	var wg sync.WaitGroup
 
 	for i := 0; i < len(group); i++ {
@@ -141,6 +149,15 @@ func SendQueryRequest(to *Server, req *QueryArg) (*QueryRes, error) {
 	defer conn.Close()
 	c := NewRaftServiceClient(conn)
 	return c.Query(context.Background(), req)
+}
+
+// Stage 3: Leader State
+func StageThree(group []*Server, done chan int) {
+	for _, v := range group {
+		v.group = group
+	}
+	group[0].State = Leader
+	done <- 1
 }
 
 //func startAll(servers []Server, done chan int) {

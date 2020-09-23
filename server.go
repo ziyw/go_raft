@@ -22,7 +22,7 @@ type Server struct {
 	Id    int
 	State int
 
-	group []Server
+	group []*Server
 	// persist states, TODO: need to write those to file
 	// TODO: current version, use in memory version
 	currentTerm int64
@@ -98,4 +98,21 @@ func (s *Server) CommitIndex() int64 {
 func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 	r := fmt.Sprintf("%s says Hi", s.Name)
 	return &QueryRes{Success: true, Reply: r}, nil
+}
+
+func (s *Server) GetLeader() (*Server, error) {
+	var l *Server = nil
+	for _, v := range s.group {
+		if v.State == Leader {
+			if l == nil {
+				l = v
+			} else {
+				return nil, fmt.Errorf("More than one leader in the group")
+			}
+		}
+	}
+	if l == nil {
+		return nil, fmt.Errorf("No leader in the group")
+	}
+	return l, nil
 }
