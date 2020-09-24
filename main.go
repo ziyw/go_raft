@@ -129,29 +129,3 @@ func SendQueryRequest(to *Server, req *QueryArg) (*QueryRes, error) {
 	c := NewRaftServiceClient(conn)
 	return c.Query(context.Background(), req)
 }
-
-// Stage 3: Leader State
-
-//func startAll(servers []Server, done chan int) {
-//	count := make(chan int)
-//	for i := 0; i < len(servers); i++ {
-//		go servers[i].Start(count)
-//	}
-//
-//	go func() {
-//		running := 0
-//		for {
-//			select {
-//			case <-count:
-//				log.Printf("Done ONE")
-//				running++
-//				if running == len(servers) {
-//					log.Printf("All server started\n")
-//					done <- 1
-//					return
-//				}
-//			}
-//		}
-//
-//	}()
-//}

@@ -119,6 +119,11 @@ func (s *Server) Log() ([]*Entry, error) {
 func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 	if s.State == Leader {
 		r := fmt.Sprintf("%s says Hi", s.Name)
+		t, err := s.CurrentTerm()
+		if err != nil {
+			return nil, nil
+		}
+		s.SaveEntry(&Entry{Term: int64(t), Command: arg.Command})
 		return &QueryRes{Success: true, Reply: r}, nil
 	}
 
