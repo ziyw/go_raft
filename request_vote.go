@@ -7,44 +7,39 @@ import (
 )
 
 func (s *Server) CandidateAction() {
-	for i, f := range s.group {
+	count := 0
+	for _, f := range s.group {
 		if f.Name == s.Name {
 			continue
 		}
-
+		reply, err := s.SendVoteRequest(f, s.NewVote())
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Server %s Receive Reply %v\n", s.Name, reply)
+		if reply.VoteGranted == true {
+			count++
+			log.Println("Add one")
+		}
 	}
 }
 
-func (s *Server) SendVoteRequest(other Server, req VoteArg) (*VoteRes, error) {
+func (s *Server) SendVoteRequest(other *Server, req *VoteArg) (*VoteRes, error) {
 	conn, err := grpc.Dial(other.Addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
 	}
 	client := NewRaftServiceClient(conn)
-	return client.RequestVote(context.Background(), &req)
+	return client.RequestVote(context.Background(), req)
 }
 
-func (s *Server) Vote(servers *[]Server, done chan int) {
-	log.Printf("Start Voting \n")
-	p := *servers
-	for i := 0; i < len(p); i++ {
-		conn, err := grpc.Dial(p[i].Addr, grpc.WithInsecure())
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer conn.Close()
-		client := NewRaftServiceClient(conn)
-
-		request := VoteArg{
-			Term:         s.currentTerm,
-			CandidateId:  int64(s.Id),
-			LastLogIndex: int64(len(s.log) - 1),
-			LastLogTerm:  s.currentTerm,
-		}
-		reply, _ := client.RequestVote(context.Background(), &request)
-		log.Printf("Server %s Receive Reply %v\n", s.Name, reply)
+func (s *Server) NewVote() *VoteArg {
+	return &VoteArg{
+		Term:         s.currentTerm,
+		CandidateId:  int64(s.Id),
+		LastLogIndex: int64(len(s.log) - 1),
+		LastLogTerm:  s.currentTerm,
 	}
-	done <- 1
 }
 
 func (s *Server) RequestVote(ctx context.Context, arg *VoteArg) (*VoteRes, error) {

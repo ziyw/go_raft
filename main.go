@@ -9,29 +9,6 @@ import (
 )
 
 func main() {
-
-	//	testLog := []*Entry{
-	//		&Entry{Term: 1, Command: "Hello"},
-	//		&Entry{Term: 1, Command: "World"},
-	//	}
-	//
-	//	leader := Server{
-	//		Name:        "Leader",
-	//		Addr:        "localhost:30001",
-	//		State:       Leader,
-	//		currentTerm: 1,
-	//		votedFor:    -1,
-	//		log:         testLog,
-	//		commitIndex: len(testLog) - 1,
-	//		lastApplied: len(testLog) - 1,
-	//	}
-	//
-	//	f1 := Server{Name: "NodeOne", Addr: "localhost:30002"}
-	//	f2 := Server{Name: "NodeTwo", Addr: "localhost:30003"}
-	//	f3 := Server{Name: "NodeThree", Addr: "localhost:30004"}
-	//	s := []Server{leader, f1, f2, f3}
-	//
-
 	done := make(chan struct{})
 
 	// Stage 1: get servers up and going.
