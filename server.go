@@ -7,8 +7,8 @@ import (
 	"log"
 	"net"
 	_ "os"
-	"strconv"
-	"strings"
+	_ "strconv"
+	_ "strings"
 )
 
 const (
@@ -74,6 +74,9 @@ func (s *Server) Start() error {
 }
 
 // Persist current term
+func (s *Server) CurrentTerm() (int, error) {
+	return ReadInt(s.Addr + "CurrentTerm")
+}
 
 func (s *Server) SetCurrentTerm(term int) {
 	if err := SaveInt(s.Addr+"CurrentTerm", term); err != nil {
@@ -81,34 +84,23 @@ func (s *Server) SetCurrentTerm(term int) {
 	}
 }
 
-func (s *Server) CurrentTerm() (int, error) {
-	return ReadInt(s.Addr + "CurrentTerm")
-}
-
 func (s *Server) CheckCurrentTerm() bool {
 	return PeekFile(s.Addr + "CurrentTerm")
 }
 
-func (s *Server) SetCommitIndex(term int64) {
-	if err := WriteLine(s.Name+"CommitIndex", string(term)); err != nil {
-		log.Fatal(err)
-	}
-	s.currentTerm = term
+// Persist votedFor
+func (s *Server) VotedFor() (int, error) {
+	return ReadInt(s.Addr + "VotedFor")
 }
 
-func (s *Server) CommitIndex() int64 {
-	line, err := ReadLines(s.Name + "CommitIndex")
-	if err != nil {
+func (s *Server) SetVotedFor(term int) {
+	if err := SaveInt(s.Addr+"VotedFor", term); err != nil {
 		log.Fatal(err)
-		return 0
 	}
+}
 
-	result := strings.Trim(line[0], "\n")
-	if term, err := strconv.ParseInt(result, 10, 64); err != nil {
-		return 0
-	} else {
-		return int64(term)
-	}
+func (s *Server) CheckVotedFor() bool {
+	return PeekFile(s.Addr + "VotedFor")
 }
 
 // Query is receive normal query from normal client.

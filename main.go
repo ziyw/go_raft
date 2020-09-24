@@ -69,6 +69,13 @@ func StageOne(group []*Server, done chan int) {
 			log.Fatal(err)
 		}
 		log.Printf("Server %s current term is %d\n", g.Name, t)
+
+		g.SetVotedFor(1)
+		t, err = g.VotedFor()
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Server %s votedFor is %d\n", g.Name, t)
 	}
 
 	done <- 1
