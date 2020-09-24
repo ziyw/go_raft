@@ -78,11 +78,11 @@ func StageOne(group []*Server, done chan int) {
 		log.Printf("Server %s votedFor is %d\n", g.Name, t)
 
 		e := Entry{Term: 1, Command: "Hello"}
-		if err := SaveEntry("LogFile", &e); err != nil {
+		if err := g.SaveEntry(&e); err != nil {
 			log.Fatal(err)
 		}
-		logs, _ := ReadEntries("LogFile")
-		log.Printf("Current Logs are %v", logs[0])
+		myLog, _ := g.Log()
+		log.Printf("Current Logs are %v", myLog[0])
 
 	}
 

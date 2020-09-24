@@ -103,6 +103,15 @@ func (s *Server) CheckVotedFor() bool {
 	return PeekFile(s.Addr + "VotedFor")
 }
 
+// Persist Logs
+func (s *Server) SaveEntry(entry *Entry) error {
+	return SaveEntry(s.Addr+"Log", entry)
+}
+
+func (s *Server) Log() ([]*Entry, error) {
+	return ReadEntries(s.Addr + "Log")
+}
+
 // Query is receive normal query from normal client.
 func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 	if s.State == Leader {
