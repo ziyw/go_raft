@@ -33,6 +33,46 @@ func ReadInt(file string) (int, error) {
 	return int(r), err
 }
 
+func SaveEntry(file string, entry *Entry) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	body := fmt.Sprintf("%d\t%s\n", entry.Term, entry.Command)
+	if _, err := f.WriteString(body); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ReadEntries(file string) ([]*Entry, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	entries := []*Entry{}
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		l := string(scanner.Bytes())
+		p := strings.Split(l, "\t")
+		t, err := strconv.ParseInt(p[0], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		c := strings.Join(p[1:], "\t")
+		e := &Entry{
+			Term:    t,
+			Command: c,
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
 func check(err error) {
 	if err != nil {
 		log.Fatal(err)
