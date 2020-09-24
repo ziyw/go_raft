@@ -63,8 +63,12 @@ func StageOne(group []*Server, done chan int) {
 	wg.Wait()
 
 	for _, g := range group {
-		g.SetCurrentTerm(0)
-		log.Printf("Server %s current term is %d\n", g.Name, g.CurrentTerm())
+		g.SetCurrentTerm(100)
+		t, err := g.CurrentTerm()
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Server %s current term is %d\n", g.Name, t)
 	}
 
 	done <- 1

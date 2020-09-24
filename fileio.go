@@ -4,12 +4,34 @@ package main
 
 import (
 	"bufio"
-	_ "fmt"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
-	_ "strconv"
-	_ "strings"
+	"strconv"
+	"strings"
 )
+
+func PeekFile(file string) bool {
+	if _, err := os.Stat(file); err != nil {
+		return false
+	}
+	return true
+}
+
+func SaveInt(file string, body int) error {
+	s := []byte(fmt.Sprintf("%d\n", body))
+	return ioutil.WriteFile(file, s, 0600)
+}
+
+func ReadInt(file string) (int, error) {
+	s, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	r, err := strconv.ParseInt(strings.Trim(string(s), "\n"), 10, 64)
+	return int(r), err
+}
 
 func check(err error) {
 	if err != nil {

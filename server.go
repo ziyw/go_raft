@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	"os"
+	_ "os"
 	"strconv"
 	"strings"
 )
@@ -74,31 +74,19 @@ func (s *Server) Start() error {
 }
 
 // Persist current term
-func (s *Server) SetCurrentTerm(term int64) {
-	v := fmt.Sprintf("%d", term)
-	if err := WriteLine(s.Addr+"CurrentTerm", v); err != nil {
-		log.Println("Read current term failed")
+
+func (s *Server) SetCurrentTerm(term int) {
+	if err := SaveInt(s.Addr+"CurrentTerm", term); err != nil {
+		log.Fatal(err)
 	}
 }
 
-func (s *Server) CurrentTerm() int64 {
-	line, err := ReadLines(s.Addr + "CurrentTerm")
-	if err != nil {
-		log.Println("Persist Current Term Failed")
-	}
-	result := strings.Trim(line[0], "\n")
-	term, err := strconv.ParseInt(result, 10, 64)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return int64(term)
+func (s *Server) CurrentTerm() (int, error) {
+	return ReadInt(s.Addr + "CurrentTerm")
 }
 
 func (s *Server) CheckCurrentTerm() bool {
-	if _, err := os.Stat(s.Addr + "CurrentTerm"); err != nil {
-		return false
-	}
-	return true
+	return PeekFile(s.Addr + "CurrentTerm")
 }
 
 func (s *Server) SetCommitIndex(term int64) {
