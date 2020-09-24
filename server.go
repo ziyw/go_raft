@@ -90,6 +90,9 @@ func (s *Server) CheckCurrentTerm() bool {
 
 // Persist votedFor
 func (s *Server) VotedFor() (int, error) {
+	if !s.CheckVotedFor() {
+		return -1, fmt.Errorf("Not voting yet")
+	}
 	return ReadInt(s.Addr + "VotedFor")
 }
 
@@ -119,18 +122,19 @@ func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 		return &QueryRes{Success: true, Reply: r}, nil
 	}
 
-	l := s.GetVotedFor()
-	// no known leader in the group
-	if l == -1 {
+	l, err := s.VotedFor()
+	if err != nil || l > len(s.group) {
+		l = -1
 		for i, v := range s.group {
 			if v.State == Leader {
 				l = i
 			}
 		}
 	}
+
 	if l == -1 {
-		// TODO: replace this with trigger voteAction
-		log.Fatal("No Valid Leader")
+		// TODO: trigger VoteAtion here
+		return nil, fmt.Errorf("No valid leader in the group")
 	}
 
 	curLeader := s.group[l]
@@ -141,25 +145,4 @@ func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 	defer conn.Close()
 	c := NewRaftServiceClient(conn)
 	return c.Query(context.Background(), arg)
-}
-
-func (s Server) GetVotedFor() int {
-	return int(s.votedFor)
-}
-
-func (s *Server) GetLeader() (*Server, error) {
-	var l *Server = nil
-	for _, v := range s.group {
-		if v.State == Leader {
-			if l == nil {
-				l = v
-			} else {
-				return nil, fmt.Errorf("More than one leader in the group")
-			}
-		}
-	}
-	if l == nil {
-		return nil, fmt.Errorf("No leader in the group")
-	}
-	return l, nil
 }
