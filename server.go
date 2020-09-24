@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -72,6 +73,34 @@ func (s *Server) Start() error {
 	return nil
 }
 
+// Persist current term
+func (s *Server) SetCurrentTerm(term int64) {
+	v := fmt.Sprintf("%d", term)
+	if err := WriteLine(s.Addr+"CurrentTerm", v); err != nil {
+		log.Println("Read current term failed")
+	}
+}
+
+func (s *Server) CurrentTerm() int64 {
+	line, err := ReadLines(s.Addr + "CurrentTerm")
+	if err != nil {
+		log.Println("Persist Current Term Failed")
+	}
+	result := strings.Trim(line[0], "\n")
+	term, err := strconv.ParseInt(result, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return int64(term)
+}
+
+func (s *Server) CheckCurrentTerm() bool {
+	if _, err := os.Stat(s.Addr + "CurrentTerm"); err != nil {
+		return false
+	}
+	return true
+}
+
 func (s *Server) SetCommitIndex(term int64) {
 	if err := WriteLine(s.Name+"CommitIndex", string(term)); err != nil {
 		log.Fatal(err)
@@ -94,10 +123,39 @@ func (s *Server) CommitIndex() int64 {
 	}
 }
 
-// Query from normal clients.
+// Query is receive normal query from normal client.
 func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
-	r := fmt.Sprintf("%s says Hi", s.Name)
-	return &QueryRes{Success: true, Reply: r}, nil
+	if s.State == Leader {
+		r := fmt.Sprintf("%s says Hi", s.Name)
+		return &QueryRes{Success: true, Reply: r}, nil
+	}
+
+	l := s.GetVotedFor()
+	// no known leader in the group
+	if l == -1 {
+		for i, v := range s.group {
+			if v.State == Leader {
+				l = i
+			}
+		}
+	}
+	if l == -1 {
+		// TODO: replace this with trigger voteAction
+		log.Fatal("No Valid Leader")
+	}
+
+	curLeader := s.group[l]
+	conn, err := grpc.Dial(curLeader.Addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	c := NewRaftServiceClient(conn)
+	return c.Query(context.Background(), arg)
+}
+
+func (s Server) GetVotedFor() int {
+	return int(s.votedFor)
 }
 
 func (s *Server) GetLeader() (*Server, error) {

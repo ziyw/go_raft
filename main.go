@@ -21,28 +21,19 @@ func main() {
 	group := []*Server{s1, s2, s3, s4, s5}
 
 	st1 := make(chan int)
-	go StageOne(group, st1)
-
 	st2 := make(chan int)
 	st3 := make(chan int)
+	go StageOne(group, st1)
+
 	go func() {
 		for {
 			select {
 			case <-st1:
-				log.Println("### Stage 1 is done")
-				log.Println("### Stage 2 Start: Send query request from normal client. ###")
+				log.Println("Server setup done")
 				go StageTwo(group, st2)
 			case <-st2:
-				log.Println("### Stage 2 is done ###")
-				log.Println("### Stage 3 Start: Set leader in a group.  ###")
 				go StageThree(group, st3)
 			case <-st3:
-				if l, err := group[0].GetLeader(); err != nil {
-					log.Fatal(err)
-				} else {
-					log.Printf("Leader is %s\n", l.Name)
-				}
-				log.Println("### Stage 3 done###")
 			case <-done:
 				return
 			}
@@ -51,39 +42,13 @@ func main() {
 
 	<-done
 
-	//
-	//
-	//
-	//	allDone := make(chan int)
-	//	go func() {
-	//
-	//		startDone := make(chan int)
-	//		appendDone := make(chan int)
-	//		voteDone := make(chan int)
-	//
-	//		go startAll(s, startDone)
-	//
-	//		for {
-	//			select {
-	//			case <-startDone:
-	//				go leader.SendAppendRequest(&[]Server{f1, f2, f3}, appendDone)
-	//			case <-appendDone:
-	//				go leader.Vote(&[]Server{f1, f2, f3}, voteDone)
-	//			case <-voteDone:
-	//				allDone <- 1
-	//			}
-	//		}
-	//	}()
-	//
-	//	<-allDone
 }
 
 // Stage 1: Start all servers.
 // TODO: this is not the best way to count runnign servers. Need change.
 func StageOne(group []*Server, done chan int) {
-	log.Println("### Stage 1 Start: Setting up servers ###")
+	log.Println("Start setting up servers")
 	var wg sync.WaitGroup
-
 	for i := 0; i < len(group); i++ {
 		wg.Add(1)
 		go func(index int) {
@@ -96,11 +61,29 @@ func StageOne(group []*Server, done chan int) {
 		}(i)
 	}
 	wg.Wait()
+
+	for _, g := range group {
+		g.SetCurrentTerm(0)
+		log.Printf("Server %s current term is %d\n", g.Name, g.CurrentTerm())
+	}
+
+	done <- 1
+}
+
+func StageTwo(group []*Server, done chan int) {
+	for _, v := range group {
+		v.group = group
+	}
+	group[0].State = Leader
 	done <- 1
 }
 
 // Stage 2: normal clients send request to server.
-func StageTwo(group []*Server, done chan int) {
+func StageThree(group []*Server, done chan int) {
+	for _, s := range group {
+		s.group = group
+	}
+
 	var wg sync.WaitGroup
 	for i := 0; i < len(group); i++ {
 		wg.Add(1)
@@ -129,13 +112,6 @@ func SendQueryRequest(to *Server, req *QueryArg) (*QueryRes, error) {
 }
 
 // Stage 3: Leader State
-func StageThree(group []*Server, done chan int) {
-	for _, v := range group {
-		v.group = group
-	}
-	group[0].State = Leader
-	done <- 1
-}
 
 //func startAll(servers []Server, done chan int) {
 //	count := make(chan int)
