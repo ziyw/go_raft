@@ -24,6 +24,23 @@ func (s *Server) CandidateAction() {
 	}
 }
 
+func (s *Server) CandidateInit() {
+	s.currentTerm++
+	s.State = Candidate
+
+	voteDone := make(chan int)
+	go func() {
+		for {
+			select {
+			case <-voteDone:
+
+			}
+		}
+
+	}()
+
+}
+
 // TODO: need to control when to stop sendVote
 func (s *Server) SendVote(target int, done chan int) {
 	conn, err := grpc.Dial(s.group[target].Addr, grpc.WithInsecure())
