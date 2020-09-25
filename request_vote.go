@@ -24,6 +24,14 @@ func (s *Server) CandidateAction() {
 	}
 }
 
+// TODO: need to control when to stop sendVote
+func (s *Server) SendVote(target int, done chan int) {
+	conn, err := grpc.Dial(s.group[target].Addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func (s *Server) SendVoteRequest(other *Server, req *VoteArg) (*VoteRes, error) {
 	conn, err := grpc.Dial(other.Addr, grpc.WithInsecure())
 	if err != nil {

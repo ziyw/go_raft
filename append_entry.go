@@ -97,6 +97,9 @@ func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes,
 		s.commitIndex = min(int(arg.LeaderCommit), len(s.log)-1)
 	}
 
+	if arg.Term > s.currentTerm {
+		s.currentTerm = arg.Term
+	}
 	res.Success = true
 	return &res, nil
 }
