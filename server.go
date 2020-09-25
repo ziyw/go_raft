@@ -60,6 +60,8 @@ func NewServer(name string, addr string, id int) *Server {
 
 }
 
+// TODO: Add Reboot function
+
 func (s *Server) Start() error {
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {

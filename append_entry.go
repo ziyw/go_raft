@@ -6,108 +6,98 @@ import (
 	"log"
 )
 
-func (s *Server) LeaderAction(servers *[]Server, done chan int) {
-	for i, f := range s.group {
-		if f.Name == s.Name {
-			continue
-		}
+func (s *Server) LeaderAction(followers []*Server, done chan int) {
 
-		r, err := s.SendAppendRequest(f, s.NewAppendArg(i))
-		if err != nil {
-			log.Fatal(err)
-		}
+	s.group = followers
+	updateDone := make(chan int)
+	for i := 0; i < len(followers); i++ {
+		go s.SendAppend(i, updateDone)
+	}
 
-		for !r.Success && s.nextIndex[i] >= 0 {
-			s.nextIndex[i]--
-			r, err = s.SendAppendRequest(f, s.NewAppendArg(i))
-			if err != nil {
-				log.Fatal(err)
+	go func() {
+		count := 0
+		for {
+			select {
+			case <-updateDone:
+				count++
+				if count > len(followers)/2 {
+					done <- 1
+				}
 			}
 		}
-
-		if r.Success {
-			s.nextIndex[i] = s.commitIndex + 1
-			s.matchIndex[i] = s.commitIndex
-			continue
-		}
-	}
+	}()
 }
 
-func (s *Server) SendAppendRequest(to *Server, req *AppendArg) (*AppendRes, error) {
-	conn, err := grpc.Dial(to.Addr, grpc.WithInsecure())
+func (s *Server) SendAppend(target int, done chan int) {
+	conn, err := grpc.Dial(s.group[target].Addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer conn.Close()
-	c := NewRaftServiceClient(conn)
-	return c.AppendEntries(context.Background(), req)
+
+	client := NewRaftServiceClient(conn)
+	reply, err := client.AppendEntries(context.Background(), s.NewAppendArg(target))
+	for !reply.Success || err != nil {
+		s.nextIndex[target]--
+		reply, err = client.AppendEntries(context.Background(), s.NewAppendArg(target))
+	}
+	done <- 1
 }
 
-func (s *Server) InitLeaderState() {
-	s.nextIndex = make([]int, len(s.group))
-	s.matchIndex = make([]int, len(s.group))
+func (s *Server) NewAppendArg(target int) *AppendArg {
+	startIndex := int64(s.nextIndex[target])
+	return &AppendArg{
+		Term:         s.currentTerm,
+		LeaderId:     int64(s.Id),
+		PrevLogIndex: startIndex - 1,
+		PrevLogTerm:  s.log[startIndex-1].Term,
+		Entries:      s.log[startIndex:],
+		LeaderCommit: int64(s.commitIndex),
+	}
 
-	for i := 0; i < len(s.group); i++ {
-		s.nextIndex[i] = len(s.log) - 1
+}
+
+func (s *Server) SetLeader(followers []*Server) {
+	s.nextIndex = make([]int, len(followers))
+	s.matchIndex = make([]int, len(followers))
+
+	for i := 0; i < len(followers); i++ {
+		s.nextIndex[i] = len(s.log) + 1
 		s.matchIndex[i] = 0
 	}
 }
 
-func (s *Server) NewAppendArg(index int) *AppendArg {
-	return &AppendArg{
-		Term:         s.currentTerm,
-		PrevLogIndex: int64(s.nextIndex[index]),
-		PrevLogTerm:  s.log[s.nextIndex[index]].Term,
-		Entries:      s.log[s.nextIndex[index]:],
-		LeaderCommit: int64(s.commitIndex),
-	}
-}
+// Follower behavior
 
 func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes, error) {
-	log.Printf("Server %s Receive AppendEntries Request %v\n", s.Name, *arg)
-
-	res := AppendRes{Term: s.currentTerm, Success: true}
+	res := AppendRes{Term: s.currentTerm, Success: false}
 
 	if arg.Term < s.currentTerm {
-		res.Success = false
+		// TODO: Trigger Vote
 		return &res, nil
 	}
 
-	if len(s.log) == 0 {
-		res.Success = true
-		s.log = arg.Entries
+	prevIndex := int(arg.PrevLogIndex)
+	if prevIndex > len(s.log)-1 || s.log[prevIndex].Term != arg.PrevLogTerm {
 		return &res, nil
 	}
 
-	if len(s.log) <= int(arg.PrevLogIndex) {
-		res.Success = false
-		return &res, nil
-	}
-
-	if s.log[arg.PrevLogIndex].Term != arg.PrevLogTerm {
-		res.Success = false
-		return &res, nil
-	}
-
-	// check conflit
-	for i := 0; i < len(arg.Entries); i++ {
-		j := int(i + int(arg.PrevLogIndex))
-		if j >= len(s.log) {
+	j := 0
+	for i := prevIndex + 1; i <= len(s.log)-1; i++ {
+		if arg.Entries[j].Term != s.log[i].Term {
+			s.log = s.log[:i]
 			break
 		}
-		if s.log[j].Term != arg.Entries[i].Term {
-			s.log = s.log[:j-1]
-			break
-		}
+		j++
 	}
 
-	// Append entries that are not exsiting
-	s.log = append(s.log, arg.Entries...)
+	s.log = append(s.log, arg.Entries[j:]...)
 
 	if int(arg.LeaderCommit) > s.commitIndex {
 		s.commitIndex = min(int(arg.LeaderCommit), len(s.log)-1)
 	}
 
+	res.Success = true
 	return &res, nil
 }
 
