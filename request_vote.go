@@ -27,18 +27,6 @@ func (s *Server) CandidateAction() {
 func (s *Server) CandidateInit() {
 	s.currentTerm++
 	s.State = Candidate
-
-	voteDone := make(chan int)
-	go func() {
-		for {
-			select {
-			case <-voteDone:
-
-			}
-		}
-
-	}()
-
 }
 
 // TODO: need to control when to stop sendVote
@@ -47,6 +35,15 @@ func (s *Server) SendVote(target int, done chan int) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	client := NewRaftServiceClient(conn)
+	r, err := client.RequestVote(context.Background(), s.NewVote())
+	if err != nil {
+		log.Fatal(err)
+	}
+	if r.VoteGranted {
+		done <- 1
+	}
+	done <- 0
 }
 
 func (s *Server) SendVoteRequest(other *Server, req *VoteArg) (*VoteRes, error) {
