@@ -2,39 +2,52 @@ package main
 
 import (
 	"golang.org/x/net/context"
+	"log"
 )
 
 func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes, error) {
-	res := AppendRes{Term: s.currentTerm, Success: false}
+	term, err := s.CurrentTerm()
+	if err != nil {
+		log.Fatal(err)
+	}
+	res := AppendRes{Term: int64(term), Success: false}
 
-	if arg.Term < s.currentTerm {
+	if arg.Term < int64(term) {
 		// TODO: Trigger Vote
 		return &res, nil
 	}
+	if arg.Term > int64(term) {
+		s.SetCurrentTerm(int(arg.Term))
+	}
+
+	logs, err := s.Log()
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	prevIndex := int(arg.PrevLogIndex)
-	if prevIndex > len(s.log)-1 || s.log[prevIndex].Term != arg.PrevLogTerm {
+	if prevIndex > len(logs)-1 || logs[prevIndex].Term != arg.PrevLogTerm {
 		return &res, nil
 	}
 
 	j := 0
-	for i := prevIndex + 1; i <= len(s.log)-1; i++ {
-		if arg.Entries[j].Term != s.log[i].Term {
-			s.log = s.log[:i]
+	for i := prevIndex + 1; i <= len(logs)-1; i++ {
+		if arg.Entries[j].Term != logs[i].Term {
+			logs = logs[:i]
 			break
 		}
 		j++
 	}
 
-	s.log = append(s.log, arg.Entries[j:]...)
+	logs = append(logs, arg.Entries[j:]...)
+
+	s.SaveEntries(logs)
 
 	if int(arg.LeaderCommit) > s.commitIndex {
-		s.commitIndex = min(int(arg.LeaderCommit), len(s.log)-1)
+		s.commitIndex = min(int(arg.LeaderCommit), len(logs)-1)
 	}
 
-	if arg.Term > s.currentTerm {
-		s.currentTerm = arg.Term
-	}
 	res.Success = true
 	return &res, nil
 }

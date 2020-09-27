@@ -69,12 +69,22 @@ func (s *Server) SendAppend(target int, done chan int) {
 
 func (s *Server) NewAppendArg(target int) *AppendArg {
 	startIndex := int64(s.nextIndex[target])
+	term, err := s.CurrentTerm()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	logs, err := s.Log()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return &AppendArg{
-		Term:         s.currentTerm,
+		Term:         int64(term),
 		LeaderId:     int64(s.Id),
 		PrevLogIndex: startIndex - 1,
-		PrevLogTerm:  s.log[startIndex-1].Term,
-		Entries:      s.log[startIndex:],
+		PrevLogTerm:  logs[startIndex-1].Term,
+		Entries:      logs[startIndex:],
 		LeaderCommit: int64(s.commitIndex),
 	}
 
@@ -85,8 +95,12 @@ func (s *Server) InitLeader(followers []*Server) {
 	s.nextIndex = make([]int, len(followers))
 	s.matchIndex = make([]int, len(followers))
 
+	logs, err := s.Log()
+	if err != nil {
+		log.Fatal(err)
+	}
 	for i := 0; i < len(followers); i++ {
-		s.nextIndex[i] = len(s.log) + 1
+		s.nextIndex[i] = len(logs) + 1
 		s.matchIndex[i] = 0
 	}
 }

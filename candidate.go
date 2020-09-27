@@ -8,8 +8,11 @@ import (
 
 func (s *Server) InitCandidate() {
 	s.State = Candidate
-	s.currentTerm++
-	s.State = Candidate
+	cur, err := s.CurrentTerm()
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.SetCurrentTerm(cur + 1)
 }
 
 func (s *Server) StartVote() {
@@ -54,17 +57,29 @@ func (s *Server) SendVote(target int, done chan int) {
 }
 
 func (s *Server) NewVote() *VoteArg {
+	cur, err := s.CurrentTerm()
+	if err != nil {
+		log.Fatal(err)
+	}
+	l, err := s.Log()
+	if err != nil {
+		log.Fatal(err)
+	}
 	return &VoteArg{
-		Term:         s.currentTerm,
+		Term:         int64(cur),
 		CandidateId:  int64(s.Id),
-		LastLogIndex: int64(len(s.log) - 1),
-		LastLogTerm:  s.currentTerm,
+		LastLogIndex: int64(len(l) - 1),
+		LastLogTerm:  int64(cur),
 	}
 }
 
 func (s *Server) RequestVote(ctx context.Context, arg *VoteArg) (*VoteRes, error) {
-	res := VoteRes{Term: s.currentTerm, VoteGranted: false}
-	if arg.Term < s.currentTerm {
+	term, err := s.CurrentTerm()
+	if err != nil {
+		log.Fatal(err)
+	}
+	res := VoteRes{Term: int64(term), VoteGranted: false}
+	if arg.Term < int64(term) {
 		return &res, nil
 	}
 

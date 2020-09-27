@@ -25,11 +25,6 @@ type Server struct {
 
 	leaderAddr string
 	group      []*Server
-	// persist states, TODO: need to write those to file
-	// TODO: current version, use in memory version
-	currentTerm int64
-	votedFor    int64 // when int < 0, is nil
-	log         []*Entry
 
 	// leader state
 	nextIndex  []int
@@ -93,8 +88,18 @@ func (s *Server) SetVotedFor(term int) {
 }
 
 // Persist Logs
+// TODO: Save entry should be save entry to a certain line
 func (s *Server) SaveEntry(entry *Entry) error {
 	return SaveEntry(s.Addr+"Log", entry)
+}
+
+func (s *Server) SaveEntries(entries []*Entry) error {
+	for _, e := range entries {
+		if err := s.SaveEntry(e); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Server) Log() ([]*Entry, error) {
