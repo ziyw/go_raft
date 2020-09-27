@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"golang.org/x/net/context"
+	_ "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -23,7 +23,8 @@ type Server struct {
 	Id    int
 	State int
 
-	group []*Server
+	leaderId int
+	group    []*Server
 	// persist states, TODO: need to write those to file
 	// TODO: current version, use in memory version
 	currentTerm int64
@@ -39,12 +40,14 @@ type Server struct {
 	lastApplied int
 }
 
+// TODO: not consider the restart situation
 func NewServer(name string, addr string, id int) *Server {
 	// TODO: replace log with log read from file
 	testLog := []*Entry{
 		&Entry{Term: 1, Command: "Hello"},
 		&Entry{Term: 1, Command: "World"},
 	}
+
 	return &Server{
 		Name:  name,
 		Addr:  addr,
@@ -115,41 +118,4 @@ func (s *Server) SaveEntry(entry *Entry) error {
 
 func (s *Server) Log() ([]*Entry, error) {
 	return ReadEntries(s.Addr + "Log")
-}
-
-// Query is receive normal query from normal client.
-func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
-	if s.State == Leader {
-		r := fmt.Sprintf("%s says Hi", s.Name)
-		t, err := s.CurrentTerm()
-		if err != nil {
-			return nil, nil
-		}
-		s.SaveEntry(&Entry{Term: int64(t), Command: arg.Command})
-		return &QueryRes{Success: true, Reply: r}, nil
-	}
-
-	l, err := s.VotedFor()
-	if err != nil || l > len(s.group) {
-		l = -1
-		for i, v := range s.group {
-			if v.State == Leader {
-				l = i
-			}
-		}
-	}
-
-	if l == -1 {
-		// TODO: trigger VoteAtion here
-		return nil, fmt.Errorf("No valid leader in the group")
-	}
-
-	curLeader := s.group[l]
-	conn, err := grpc.Dial(curLeader.Addr, grpc.WithInsecure())
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-	c := NewRaftServiceClient(conn)
-	return c.Query(context.Background(), arg)
 }
