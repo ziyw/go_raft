@@ -11,6 +11,26 @@ import (
 	_ "strings"
 )
 
+func (s *Server) InitLeader(followers []*Server) {
+	s.State = Leader
+	s.group = followers
+	s.nextIndex = make([]int, len(followers))
+	s.matchIndex = make([]int, len(followers))
+
+	logs, err := s.Log()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i := 0; i < len(followers); i++ {
+		s.nextIndex[i] = len(logs)
+		s.matchIndex[i] = 0
+	}
+
+	log.Printf("Leader: nextIndex are %v\n", s.nextIndex)
+	log.Printf("Leader: matchIndex are %v\n", s.matchIndex)
+
+}
+
 // Query is receive normal query from normal client.
 func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 	if s.State == Leader {
@@ -27,24 +47,23 @@ func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 }
 
 func (s *Server) HandleQuery(arg *QueryArg) (*QueryRes, error) {
-	quit := make(chan struct{})
-	done := make(chan int)
+	log.Printf("Server %s start to HandleQuery", s.Name)
 
+	done := make(chan int)
 	for i := 0; i < len(s.group); i++ {
-		go func(quit chan struct{}, index int) {
-			select {
-			case <-quit:
-				return
-			default:
-				s.SendAppend(index, done)
-			}
-		}(quit, i)
+		log.Printf("Server %s SendAppend to %s\n", s.Name, s.group[i].Name)
+		go s.SendAppend(i, done)
 	}
 
 	count := 0
 	for i := range done {
 		count += i
 		if count >= len(s.group)/2 {
+			term, err := s.CurrentTerm()
+			if err != nil {
+				log.Fatal(err)
+			}
+			s.SaveEntry(&Entry{Term: int64(term), Command: arg.Command})
 			return &QueryRes{Success: true, Reply: "Hello"}, nil
 		}
 	}
@@ -68,7 +87,7 @@ func (s *Server) SendAppend(target int, done chan int) {
 }
 
 func (s *Server) NewAppendArg(target int) *AppendArg {
-	startIndex := int64(s.nextIndex[target])
+	startIndex := s.nextIndex[target]
 	term, err := s.CurrentTerm()
 	if err != nil {
 		log.Fatal(err)
@@ -82,27 +101,12 @@ func (s *Server) NewAppendArg(target int) *AppendArg {
 	return &AppendArg{
 		Term:         int64(term),
 		LeaderId:     int64(s.Id),
-		PrevLogIndex: startIndex - 1,
+		PrevLogIndex: int64(startIndex - 1),
 		PrevLogTerm:  logs[startIndex-1].Term,
 		Entries:      logs[startIndex:],
 		LeaderCommit: int64(s.commitIndex),
 	}
 
-}
-
-func (s *Server) InitLeader(followers []*Server) {
-	s.State = Leader
-	s.nextIndex = make([]int, len(followers))
-	s.matchIndex = make([]int, len(followers))
-
-	logs, err := s.Log()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for i := 0; i < len(followers); i++ {
-		s.nextIndex[i] = len(logs) + 1
-		s.matchIndex[i] = 0
-	}
 }
 
 func (s *Server) InitFollower(newTerm int) {

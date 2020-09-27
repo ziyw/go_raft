@@ -94,12 +94,7 @@ func (s *Server) SaveEntry(entry *Entry) error {
 }
 
 func (s *Server) SaveEntries(entries []*Entry) error {
-	for _, e := range entries {
-		if err := s.SaveEntry(e); err != nil {
-			return err
-		}
-	}
-	return nil
+	return SaveEntries(s.Addr+"Log", entries)
 }
 
 func (s *Server) Log() ([]*Entry, error) {

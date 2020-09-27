@@ -6,6 +6,8 @@ import (
 )
 
 func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes, error) {
+	log.Printf("Server %s Receive AppendArg %v", s.Name, arg)
+
 	term, err := s.CurrentTerm()
 	if err != nil {
 		log.Fatal(err)

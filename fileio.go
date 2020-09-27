@@ -47,6 +47,53 @@ func SaveEntry(file string, entry *Entry) error {
 	return nil
 }
 
+func SaveEntries(file string, entries []*Entry) error {
+	os.Remove(file)
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	for i := 0; i < len(entries); i++ {
+		body := fmt.Sprintf("%d\t%s\n", entries[i].Term, entries[i].Command)
+		if _, err := f.WriteString(body); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ReadEntry(file string, index int) (*Entry, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(f)
+	count := 0
+	for scanner.Scan() {
+		if count == index {
+			l := string(scanner.Bytes())
+			p := strings.Split(l, "\t")
+			t, err := strconv.ParseInt(p[0], 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			c := strings.Join(p[1:], "\t")
+			e := &Entry{
+				Term:    t,
+				Command: c,
+			}
+			return e, nil
+		}
+		count++
+		scanner.Bytes()
+	}
+	return nil, fmt.Errorf("Index out of range")
+}
+
 func ReadEntries(file string) ([]*Entry, error) {
 	f, err := os.Open(file)
 	if err != nil {
