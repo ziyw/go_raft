@@ -14,32 +14,10 @@ import (
 // Query is receive normal query from normal client.
 func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 	if s.State == Leader {
-		r := fmt.Sprintf("%s says Hi", s.Name)
-		t, err := s.CurrentTerm()
-		if err != nil {
-			return nil, nil
-		}
-		s.SaveEntry(&Entry{Term: int64(t), Command: arg.Command})
-		return &QueryRes{Success: true, Reply: r}, nil
+		return s.HandleQuery(arg)
 	}
 
-	l, err := s.VotedFor()
-	if err != nil || l > len(s.group) {
-		l = -1
-		for i, v := range s.group {
-			if v.State == Leader {
-				l = i
-			}
-		}
-	}
-
-	if l == -1 {
-		// TODO: trigger VoteAtion here
-		return nil, fmt.Errorf("No valid leader in the group")
-	}
-
-	curLeader := s.group[l]
-	conn, err := grpc.Dial(curLeader.Addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(s.leaderAddr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,26 +26,29 @@ func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 	return c.Query(context.Background(), arg)
 }
 
-func (s *Server) LeaderAction(followers []*Server, done chan int) {
+func (s *Server) HandleQuery(arg *QueryArg) (*QueryRes, error) {
+	quit := make(chan struct{})
+	done := make(chan int)
 
-	s.group = followers
-	updateDone := make(chan int)
-	for i := 0; i < len(followers); i++ {
-		go s.SendAppend(i, updateDone)
+	for i := 0; i < len(s.group); i++ {
+		go func(quit chan struct{}, index int) {
+			select {
+			case <-quit:
+				return
+			default:
+				s.SendAppend(index, done)
+			}
+		}(quit, i)
 	}
 
-	go func() {
-		count := 0
-		for {
-			select {
-			case <-updateDone:
-				count++
-				if count > len(followers)/2 {
-					done <- 1
-				}
-			}
+	count := 0
+	for i := range done {
+		count += i
+		if count >= len(s.group)/2 {
+			return &QueryRes{Success: true, Reply: "Hello"}, nil
 		}
-	}()
+	}
+	return nil, fmt.Errorf("Lack of result")
 }
 
 func (s *Server) SendAppend(target int, done chan int) {
@@ -99,7 +80,8 @@ func (s *Server) NewAppendArg(target int) *AppendArg {
 
 }
 
-func (s *Server) SetLeader(followers []*Server) {
+func (s *Server) InitLeader(followers []*Server) {
+	s.State = Leader
 	s.nextIndex = make([]int, len(followers))
 	s.matchIndex = make([]int, len(followers))
 
@@ -107,4 +89,8 @@ func (s *Server) SetLeader(followers []*Server) {
 		s.nextIndex[i] = len(s.log) + 1
 		s.matchIndex[i] = 0
 	}
+}
+
+func (s *Server) InitFollower() {
+	s.State = Follower
 }

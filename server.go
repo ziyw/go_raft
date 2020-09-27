@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	_ "fmt"
 	_ "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
@@ -23,8 +23,8 @@ type Server struct {
 	Id    int
 	State int
 
-	leaderId int
-	group    []*Server
+	leaderAddr string
+	group      []*Server
 	// persist states, TODO: need to write those to file
 	// TODO: current version, use in memory version
 	currentTerm int64
@@ -40,30 +40,22 @@ type Server struct {
 	lastApplied int
 }
 
-// TODO: not consider the restart situation
+// Initialize a new server. (NOT consider the reboot situation.)
 func NewServer(name string, addr string, id int) *Server {
-	// TODO: replace log with log read from file
-	testLog := []*Entry{
-		&Entry{Term: 1, Command: "Hello"},
-		&Entry{Term: 1, Command: "World"},
-	}
-
-	return &Server{
-		Name:  name,
-		Addr:  addr,
-		Id:    id,
-		State: Follower,
-		// TODO: three of them should be replaced by persist read
-		currentTerm: 1, // TODO: replace with read term file
-		votedFor:    -1,
-		log:         testLog,
+	s := &Server{
+		Name:        name,
+		Addr:        addr,
+		Id:          id,
+		State:       Follower,
 		commitIndex: 0,
 		lastApplied: 0,
 	}
 
+	s.SetCurrentTerm(1)
+	s.SetVotedFor(-1)
+	s.SaveEntry(&Entry{Term: 0, Command: ""})
+	return s
 }
-
-// TODO: Add Reboot function
 
 func (s *Server) Start() error {
 	lis, err := net.Listen("tcp", s.Addr)
@@ -89,15 +81,8 @@ func (s *Server) SetCurrentTerm(term int) {
 	}
 }
 
-func (s *Server) CheckCurrentTerm() bool {
-	return PeekFile(s.Addr + "CurrentTerm")
-}
-
 // Persist votedFor
 func (s *Server) VotedFor() (int, error) {
-	if !s.CheckVotedFor() {
-		return -1, fmt.Errorf("Not voting yet")
-	}
 	return ReadInt(s.Addr + "VotedFor")
 }
 
@@ -105,10 +90,6 @@ func (s *Server) SetVotedFor(term int) {
 	if err := SaveInt(s.Addr+"VotedFor", term); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func (s *Server) CheckVotedFor() bool {
-	return PeekFile(s.Addr + "VotedFor")
 }
 
 // Persist Logs

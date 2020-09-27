@@ -6,27 +6,35 @@ import (
 	"log"
 )
 
-func (s *Server) CandidateAction() {
-	count := 0
-	for _, f := range s.group {
-		if f.Name == s.Name {
-			continue
-		}
-		reply, err := s.SendVoteRequest(f, s.NewVote())
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("Server %s Receive Reply %v\n", s.Name, reply)
-		if reply.VoteGranted == true {
-			count++
-			log.Println("Add one")
-		}
-	}
-}
-
-func (s *Server) CandidateInit() {
+func (s *Server) InitCandidate() {
+	s.State = Candidate
 	s.currentTerm++
 	s.State = Candidate
+}
+
+func (s *Server) StartVote() {
+	quit := make(chan struct{})
+	done := make(chan int)
+	for i := 0; i < len(s.group); i++ {
+		go func(quit chan struct{}, index int) {
+			select {
+			case <-quit:
+				return
+			default:
+				s.SendVote(index, done)
+			}
+		}(quit, i)
+	}
+
+	count := 0
+	for i := range done {
+		count += i
+		if count >= len(s.group)/2 {
+			// Change State
+		}
+		quit <- struct{}{}
+		return
+	}
 }
 
 // TODO: need to control when to stop sendVote
@@ -46,15 +54,6 @@ func (s *Server) SendVote(target int, done chan int) {
 	done <- 0
 }
 
-func (s *Server) SendVoteRequest(other *Server, req *VoteArg) (*VoteRes, error) {
-	conn, err := grpc.Dial(other.Addr, grpc.WithInsecure())
-	if err != nil {
-		log.Fatal(err)
-	}
-	client := NewRaftServiceClient(conn)
-	return client.RequestVote(context.Background(), req)
-}
-
 func (s *Server) NewVote() *VoteArg {
 	return &VoteArg{
 		Term:         s.currentTerm,
@@ -69,7 +68,7 @@ func (s *Server) RequestVote(ctx context.Context, arg *VoteArg) (*VoteRes, error
 	if arg.Term < s.currentTerm {
 		return &res, nil
 	}
-
+	// 5.4
 	// TODO: compare if logs are update to date
 	if s.votedFor == -1 || s.votedFor == arg.CandidateId {
 		res.VoteGranted = true
