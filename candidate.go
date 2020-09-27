@@ -37,7 +37,6 @@ func (s *Server) StartVote() {
 	}
 }
 
-// TODO: need to control when to stop sendVote
 func (s *Server) SendVote(target int, done chan int) {
 	conn, err := grpc.Dial(s.group[target].Addr, grpc.WithInsecure())
 	if err != nil {
@@ -68,9 +67,26 @@ func (s *Server) RequestVote(ctx context.Context, arg *VoteArg) (*VoteRes, error
 	if arg.Term < s.currentTerm {
 		return &res, nil
 	}
-	// 5.4
-	// TODO: compare if logs are update to date
-	if s.votedFor == -1 || s.votedFor == arg.CandidateId {
+
+	votedFor, err := s.VotedFor()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if votedFor == -1 || votedFor == int(arg.CandidateId) {
+		s.SetVotedFor(int(arg.CandidateId))
+		res.VoteGranted = true
+		return &res, nil
+	}
+
+	logs, err := s.Log()
+	if err != nil {
+		log.Fatal(err)
+	}
+	lastIndex := len(logs) - 1
+	lastTerm := logs[lastIndex].Term
+
+	if lastIndex == int(arg.LastLogIndex) && lastTerm == arg.LastLogTerm {
+		s.SetVotedFor(int(arg.CandidateId))
 		res.VoteGranted = true
 		return &res, nil
 	}

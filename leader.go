@@ -91,6 +91,7 @@ func (s *Server) InitLeader(followers []*Server) {
 	}
 }
 
-func (s *Server) InitFollower() {
+func (s *Server) InitFollower(newTerm int) {
 	s.State = Follower
+	s.SetCurrentTerm(newTerm)
 }
