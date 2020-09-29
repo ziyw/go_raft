@@ -49,6 +49,14 @@ func (s *Server) Query(ctx context.Context, arg *QueryArg) (*QueryRes, error) {
 func (s *Server) HandleQuery(arg *QueryArg) (*QueryRes, error) {
 	log.Printf("Server %s start to HandleQuery", s.Name)
 
+	logs, err := s.Log()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i := 0; i < len(s.group); i++ {
+		s.nextIndex[i] = len(logs)
+	}
+
 	done := make(chan int)
 	for i := 0; i < len(s.group); i++ {
 		log.Printf("Server %s SendAppend to %s\n", s.Name, s.group[i].Name)
@@ -77,11 +85,25 @@ func (s *Server) SendAppend(target int, done chan int) {
 	}
 	defer conn.Close()
 
+	term, err := s.CurrentTerm()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	client := NewRaftServiceClient(conn)
 	reply, err := client.AppendEntries(context.Background(), s.NewAppendArg(target))
+	if reply.Term > int64(term) {
+		close(done)
+		s.InitFollower(int(reply.Term))
+	}
+
 	for !reply.Success || err != nil {
 		s.nextIndex[target]--
 		reply, err = client.AppendEntries(context.Background(), s.NewAppendArg(target))
+		if reply.Term > int64(term) {
+			close(done)
+			s.InitFollower(int(reply.Term))
+		}
 	}
 	done <- 1
 }
@@ -107,9 +129,4 @@ func (s *Server) NewAppendArg(target int) *AppendArg {
 		LeaderCommit: int64(s.commitIndex),
 	}
 
-}
-
-func (s *Server) InitFollower(newTerm int) {
-	s.State = Follower
-	s.SetCurrentTerm(newTerm)
 }

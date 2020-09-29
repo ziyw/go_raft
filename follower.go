@@ -5,8 +5,13 @@ import (
 	"log"
 )
 
+func (s *Server) InitFollower(newTerm int) {
+	s.State = Follower
+	s.SetCurrentTerm(newTerm)
+}
+
 func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes, error) {
-	log.Printf("Server %s Receive AppendArg %v", s.Name, arg)
+	log.Printf("Server %s Receive AppendEntry Request with  AppendArg %v\n", s.Name, arg)
 
 	term, err := s.CurrentTerm()
 	if err != nil {
@@ -15,7 +20,8 @@ func (s *Server) AppendEntries(ctx context.Context, arg *AppendArg) (*AppendRes,
 	res := AppendRes{Term: int64(term), Success: false}
 
 	if arg.Term < int64(term) {
-		// TODO: Trigger Vote
+		s.InitCandidate()
+		go s.StartVote()
 		return &res, nil
 	}
 	if arg.Term > int64(term) {

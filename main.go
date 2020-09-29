@@ -28,6 +28,7 @@ func main() {
 			startDone <- 1
 		}
 	}(startDone)
+
 	started := 0
 	for i := range startDone {
 		fmt.Println(i)
@@ -40,16 +41,15 @@ func main() {
 				followers := []*Server{s2, s3, s4, s5}
 				s1.InitLeader(followers)
 				for i := 0; i < 10; i++ {
+					time.Sleep(time.Second * 2)
 					log.Printf("Sending query %d", i)
 					RepeatQuery(s1)
 				}
 			}()
-
 		}
 	}
 
 	<-allDone
-
 }
 
 func RepeatQuery(leader *Server) {

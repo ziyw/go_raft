@@ -88,7 +88,7 @@ func (s *Server) SetVotedFor(term int) {
 }
 
 // Persist Logs
-// TODO: Save entry should be save entry to a certain line
+// TODO: add AppendEntry, InsertEntry(entry, index), deleteEntry(index)  functions
 func (s *Server) SaveEntry(entry *Entry) error {
 	return SaveEntry(s.Addr+"Log", entry)
 }

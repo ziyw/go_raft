@@ -164,7 +164,3 @@ func ReadLines(file string) ([]string, error) {
 	err = scanner.Err()
 	return result, nil
 }
-
-// TODO: parse string to Entries
-// TODO: parse string to int  strconv.ParseInt(s, 10, 64)
-// TODO: parse string to antying
