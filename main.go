@@ -7,6 +7,7 @@ import (
 	"log"
 	_ "sync"
 	"time"
+  _ "go_raft/raft"
 )
 
 func main() {

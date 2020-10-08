@@ -1,10 +1,13 @@
-module github.com/ziyw/go_raft
+module go_raft
 
-go 1.13
+go 1.15
+
+replace go_raft/raft => ./raft
 
 require (
 	github.com/golang/protobuf v1.4.2
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73
-	google.golang.org/grpc v1.31.1
+	go_raft/raft v0.0.0-00010101000000-000000000000
+	golang.org/x/net v0.0.0-20201006153459-a7d1128ccaa0
+	google.golang.org/grpc v1.32.0
 	google.golang.org/protobuf v1.25.0
 )
