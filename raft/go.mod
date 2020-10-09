@@ -4,6 +4,8 @@ go 1.15
 
 replace go_raft/pb => ../pb
 
+replace go_raft/file => ../file
+
 require (
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/stretchr/testify v1.6.1
