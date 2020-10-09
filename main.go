@@ -13,6 +13,9 @@ import (
 func main() {
 	allDone := make(chan struct{})
 
+
+  // TODO: create server config file 
+
 	s1 := NewServer("s1", "localhost:30001", 1)
 	s2 := NewServer("s2", "localhost:30002", 2)
 	s3 := NewServer("s3", "localhost:30003", 3)
