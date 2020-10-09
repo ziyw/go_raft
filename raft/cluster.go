@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"go_raft/file"
 	_ "go_raft/pb"
 	"log"
 	"strings"
@@ -11,8 +12,8 @@ type Cluster struct {
 }
 
 // Parse config file to create servers.
-func (c *Cluster) Config(file string) []*Server {
-	lines, err := ReadLines(file)
+func (c *Cluster) Config(cfg string) []*Server {
+	lines, err := file.ReadLines(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}

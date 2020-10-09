@@ -36,25 +36,20 @@ type Server struct {
 	lastApplied int
 }
 
-func (s *Server) CurrentTerm() int {
-	term, err := ReadInt(s.Addr + "CurrentTerm")
-	if err != nil {
-		return -1
-	}
-	return term
-}
-
-func NewServer(name, addr, id, role string) *Server { return nil }
-
-func (s *Server) Start() error {
-	return nil
-}
-
+// Persist properties
 func CurrentTerm()    {}
 func SetCurrentTerm() {}
 
 func VotedFor()    {}
 func SetVotedFor() {}
 
-func Log()       {}
-func AppendLog() {}
+func Log()    {}
+func SetLog() {}
+
+// Common server methods
+
+func NewServer(name, addr, id, role string) *Server { return nil }
+
+func (s *Server) Start() error {
+	return nil
+}
