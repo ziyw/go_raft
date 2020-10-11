@@ -6,8 +6,8 @@ import (
 	"github.com/ziyw/go_raft/pb"
 	"google.golang.org/grpc"
 	"log"
-	"os"
-	"os/signal"
+	_ "os"
+	_ "os/signal"
 	"time"
 )
 
@@ -67,12 +67,7 @@ func (s *Server) HandleQuery(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRe
 	for i := 0; i < len(s.followers); i++ {
 		s.nextIndex[i] = len(logs)
 	}
-
-	// TODO: think about how to use signal here
-	sig := make(chan os.Signal)
-	signal.Notify(sig, os.Interrupt)
-	defer signal.Stop(sig)
-
+	// TODO: add signal later
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	done := make(chan int)
@@ -133,6 +128,28 @@ func (s *Server) NewAppendArg(target int) *pb.AppendArg {
 	}
 }
 
+// Reply to vote request, grant vote if qualified.
 func (s *Server) HandleRequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes, error) {
-	return nil, nil
+	term := int64(s.CurrentTerm())
+	res := &pb.VoteRes{Term: term, VoteGranted: false}
+	if arg.Term < term {
+		return res, nil
+	}
+
+	votedFor := s.VotedFor()
+	if votedFor == "" || votedFor == arg.CandidateId {
+		s.SetVotedFor(arg.CandidateId)
+		res.VoteGranted = true
+		return res, nil
+	}
+
+	log := s.Log()
+	lastIndex := len(log) - 1
+	lastTerm := log[lastIndex].Term
+	if lastIndex == int(arg.LastLogIndex) && lastTerm == arg.LastLogTerm {
+		s.SetVotedFor(arg.CandidateId)
+		res.VoteGranted = true
+		return res, nil
+	}
+	return res, nil
 }

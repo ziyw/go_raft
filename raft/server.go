@@ -2,7 +2,6 @@ package raft
 
 import (
 	"context"
-	_ "context"
 	"fmt"
 	"github.com/ziyw/go_raft/file"
 	"github.com/ziyw/go_raft/pb"
@@ -59,22 +58,18 @@ func (s *Server) SetCurrentTerm(t int) {
 	file.AppendLines(f, []string{l})
 }
 
-func (s *Server) VotedFor() int {
+func (s *Server) VotedFor() string {
 	f := s.voteFile
 	lines, err := file.ReadLines(f)
 	if err != nil {
-		return -1
+		return ""
 	}
-	t, err := strconv.ParseInt(strings.Trim(lines[0], "\n"), 10, 64)
-	if err != nil {
-		return -1
-	}
-	return int(t)
+	return strings.Trim(lines[0], "\n ")
 }
 
-func (s *Server) SetVotedFor(v int) {
+func (s *Server) SetVotedFor(v string) {
 	f := s.voteFile
-	l := fmt.Sprintf("%d\n", v)
+	l := fmt.Sprintf("%s\n", v)
 	if _, err := os.Stat(f); os.IsNotExist(err) {
 		file.AppendLines(f, []string{l})
 		return
@@ -124,7 +119,6 @@ func (s *Server) AppendLog(e *pb.Entry) {
 }
 
 // Common server methods
-
 func NewServer(name, addr, id, role string) *Server {
 	s := &Server{
 		Name:        name,
@@ -139,7 +133,7 @@ func NewServer(name, addr, id, role string) *Server {
 	}
 
 	s.SetCurrentTerm(1)
-	s.SetVotedFor(-1)
+	s.SetVotedFor("")
 	log := []*pb.Entry{&pb.Entry{Term: 0, Command: ""}}
 	s.SetLog(log)
 	return s

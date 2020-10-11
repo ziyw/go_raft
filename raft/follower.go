@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ziyw/go_raft/pb"
-	_ "google.golang.org/grpc"
+	"google.golang.org/grpc"
 	"log"
 	"time"
 )
@@ -22,8 +22,32 @@ func (s *Server) StartListenHeartbeat(ctx context.Context) {
 	}
 }
 
-func (s *Server) StartVote(ctx context.Context, arg int) {
+func (s *Server) StartVoteRequest(ctx context.Context) {
 
+}
+
+func (s *Server) SendVoteRequest(ctx context.Context, f *Server) chan bool {
+	done := make(chan bool)
+
+	conn, err := grpc.Dial(f.Addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	term := s.CurrentTerm()
+	log := s.Log()
+	arg := &pb.VoteArg{
+		Term:         int64(term),
+		CandidateId:  s.Id,
+		LastLogIndex: int64(len(log) - 1),
+		LastLogTerm:  int64(term),
+	}
+
+	client := pb.NewRaftServiceClient(conn)
+	r, err := client.RequestVote(ctx, arg)
+	done <- r.VoteGranted
+	return done
 }
 
 func (s *Server) HandleAppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {
