@@ -57,7 +57,6 @@ func NewServer(name, addr, id, role string) *Server {
 }
 
 func (s *Server) Start() {
-	log.Printf("Address is %s\n", s.Addr)
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {
 		log.Fatal(err)

@@ -22,7 +22,7 @@ func (s *Server) RequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes,
 	return nil, nil
 }
 
-func (s *Server) Heatbeat(ctx context.Context, arg int) error {
+func (s *Server) StartHeartbeat(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

@@ -20,7 +20,7 @@ func NewCluster(cfg string) *Cluster {
 		panic(err)
 	}
 
-	cluster := Cluster{Servers: []*Server{}}
+	servers := []*Server{}
 	for _, l := range lines {
 		cur := strings.Trim(l, "\n")
 		if len(cur) == 0 {
@@ -28,10 +28,14 @@ func NewCluster(cfg string) *Cluster {
 		}
 		arg := strings.Split(cur, ",")
 		s := NewServer(arg[0], arg[1], arg[2], arg[3])
-		cluster.Servers = append(cluster.Servers, s)
+		servers = append(servers, s)
 		go s.Start()
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond * 50)
 	}
+
+	cluster := Cluster{Servers: servers}
+	cluster.Servers[0].followers = servers[1:]
+	go cluster.Servers[0].StartHeartbeat(context.Background())
 	return &cluster
 }
 
