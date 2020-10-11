@@ -6,7 +6,7 @@ import (
 	"github.com/ziyw/go_raft/pb"
 	_ "golang.org/x/net/context"
 	"google.golang.org/grpc"
-	_ "log"
+	"log"
 	"net"
 	_ "os"
 	_ "strconv"
@@ -56,15 +56,13 @@ func NewServer(name, addr, id, role string) *Server {
 	return s
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start() {
+	log.Printf("Address is %s\n", s.Addr)
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
-	_s := grpc.NewServer()
-	// pb.RegisterRaftServiceServer(_s, s)
-	if err := _s.Serve(lis); err != nil {
-		return err
-	}
-	return nil
+	grpcServer := grpc.NewServer()
+	pb.RegisterRaftServiceServer(grpcServer, s)
+	grpcServer.Serve(lis)
 }

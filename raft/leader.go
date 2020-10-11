@@ -10,7 +10,8 @@ import (
 
 // Proto buffer Impl
 func (s *Server) Query(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRes, error) {
-	return nil, nil
+	log.Printf("Receive query request %v\n", arg)
+	return &pb.QueryRes{Success: true, Reply: "Hello"}, nil
 }
 
 func (s *Server) AppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {

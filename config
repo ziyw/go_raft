@@ -1,7 +1,7 @@
-ServerOne, localhost:30001, server_one, leader 
-ServerTwo, localhost:30002, server_two, follower 
-ServerThree, localhost:30003, server_three, follower 
-ServerFour, locahost:30004, server_four, follower 
-ServerFive, localhost:30005, server_five, follower 
+ServerOne,localhost:50001,server_one,leader 
+ServerTwo,localhost:50002,server_two,follower 
+ServerThree,localhost:50003,server_three,follower 
+ServerFour,localhost:50004,server_four,follower 
+ServerFive,localhost:50005,server_five,follower 
 
 

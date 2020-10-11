@@ -1,37 +1,52 @@
 package raft
 
 import (
+	"context"
 	"github.com/ziyw/go_raft/file"
+	"github.com/ziyw/go_raft/pb"
+	"google.golang.org/grpc"
 	"log"
 	"strings"
+	"time"
 )
 
 type Cluster struct {
 	Servers []*Server
 }
 
-func NewCluster(cfg string) (*Cluster, error) {
+func NewCluster(cfg string) *Cluster {
 	lines, err := file.ReadLines(cfg)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	s := []*Server{}
+	cluster := Cluster{Servers: []*Server{}}
 	for _, l := range lines {
 		cur := strings.Trim(l, "\n")
 		if len(cur) == 0 {
 			continue
 		}
 		arg := strings.Split(cur, ",")
-		log.Printf("Current line is %v", arg)
-		s = append(s, NewServer(arg[0], arg[1], arg[2], arg[3]))
+		s := NewServer(arg[0], arg[1], arg[2], arg[3])
+		cluster.Servers = append(cluster.Servers, s)
+		go s.Start()
+		time.Sleep(time.Second)
 	}
-	return &Cluster{Servers: s}, nil
+	return &cluster
 }
 
-// Start all servers in cluster.
-func (c Cluster) Start() {
-	for _, s := range c.Servers {
-		go s.Start()
+func SendRequest(addr string, body string) {
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatal(err)
 	}
+	defer conn.Close()
+
+	c := pb.NewRaftServiceClient(conn)
+	req := &pb.QueryArg{Command: body}
+	r, err := c.Query(context.Background(), req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Reply ", r)
 }
