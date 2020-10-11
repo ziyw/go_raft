@@ -2,61 +2,137 @@ package raft
 
 import (
 	"context"
+	"fmt"
 	"github.com/ziyw/go_raft/pb"
 	"google.golang.org/grpc"
 	"log"
+	"os"
+	"os/signal"
 	"time"
 )
 
-// Proto buffer Impl
-func (s *Server) Query(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRes, error) {
-	log.Printf("Receive query request %v\n", arg)
-	return &pb.QueryRes{Success: true, Reply: "Hello"}, nil
-}
+func (s *Server) InitLeader(ctx context.Context) {
+	s.nextIndex = make([]int, len(s.followers))
+	s.matchIndex = make([]int, len(s.followers))
 
-func (s *Server) AppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {
-	return nil, nil
-}
-
-func (s *Server) RequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes, error) {
-	return nil, nil
-}
-
-func (s *Server) StartHeartbeat(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
+
+	sendEmpty := func(ctx context.Context, f *Server) {
+		log.Printf("Leader %s send heartbeat\n", s.Addr)
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		conn, err := grpc.Dial(f.Addr, grpc.WithInsecure())
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer conn.Close()
+
+		term := s.CurrentTerm()
+		arg := &pb.AppendArg{
+			Term:    int64(term),
+			Entries: []*pb.Entry{},
+		}
+
+		client := pb.NewRaftServiceClient(conn)
+		reply, err := client.AppendEntries(ctx, arg)
+		if reply.Term > int64(term) {
+			cancel()
+			ctx.Done()
+		}
+	}
 
 	for {
 		select {
 		case <-ticker.C:
 			for _, f := range s.followers {
-				go s.SendAppendEmpty(ctx, f)
+				go sendEmpty(ctx, f)
 			}
 		case <-ctx.Done():
-			return ctx.Err()
+			log.Fatal(ctx.Err())
 		}
 	}
+
 }
 
-func (s *Server) SendAppendEmpty(ctx context.Context, target *Server) {
-	conn, err := grpc.Dial(target.Addr, grpc.WithInsecure())
+// Proto buffer Impl
+func (s *Server) HandleQuery(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRes, error) {
+	log.Printf("Receive query request %v\n", arg)
+
+	logs := s.Log()
+	for i := 0; i < len(s.followers); i++ {
+		s.nextIndex[i] = len(logs)
+	}
+
+	// TODO: think about how to use signal here
+	sig := make(chan os.Signal)
+	signal.Notify(sig, os.Interrupt)
+	defer signal.Stop(sig)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	done := make(chan int)
+	for i := 0; i < len(s.followers); i++ {
+		go s.SendAppendEntries(ctx, done, i)
+	}
+
+	cnt := 0
+	for i := range done {
+		cnt += i
+		if cnt > len(s.followers)/2 {
+			s.AppendLog(&pb.Entry{Term: int64(s.CurrentTerm()), Command: arg.Command})
+			return &pb.QueryRes{Success: true, Reply: "Done"}, nil
+		}
+	}
+	return nil, fmt.Errorf("Handle Query Error")
+}
+
+func (s *Server) SendAppendEntries(ctx context.Context, done chan int, idx int) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	conn, err := grpc.Dial(s.followers[idx].Addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer conn.Close()
 
 	term := s.CurrentTerm()
-	arg := &pb.AppendArg{
-		Term:    int64(term),
-		Entries: []*pb.Entry{},
-	}
-
 	client := pb.NewRaftServiceClient(conn)
-	reply, err := client.AppendEntries(ctx, arg)
-	if reply.Term > int64(term) {
-		ctx.Done()
+	r, err := client.AppendEntries(ctx, s.NewAppendArg(idx))
+
+	for {
+		if r.Term > int64(term) {
+			cancel()
+			// TODO: also cancel parent
+		}
+
+		if r.Success {
+			done <- 1
+			return
+		}
+		s.nextIndex[idx]--
+		r, err = client.AppendEntries(ctx, s.NewAppendArg(idx))
 	}
+}
+
+func (s *Server) NewAppendArg(target int) *pb.AppendArg {
+	startIndex := s.nextIndex[target]
+	logs := s.Log()
+	return &pb.AppendArg{
+		Term:         int64(s.CurrentTerm()),
+		LeaderId:     s.Id,
+		PrevLogIndex: int64(startIndex - 1),
+		PrevLogTerm:  logs[startIndex-1].Term,
+		Entries:      logs[startIndex:],
+		LeaderCommit: int64(s.commitIndex),
+	}
+}
+
+func (s *Server) HandleRequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes, error) {
+	return nil, nil
 }
