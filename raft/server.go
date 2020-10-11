@@ -2,7 +2,7 @@ package raft
 
 import (
 	_ "fmt"
-	_ "go_raft/pb"
+	_ "github.com/ziyw/go_raft/pb"
 	_ "golang.org/x/net/context"
 	_ "google.golang.org/grpc"
 	_ "log"

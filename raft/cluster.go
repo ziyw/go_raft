@@ -1,8 +1,7 @@
 package raft
 
 import (
-	"go_raft/file"
-	_ "go_raft/pb"
+	"github.com/ziyw/go_raft/file"
 	"log"
 	"strings"
 )

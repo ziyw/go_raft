@@ -2,19 +2,18 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/ziyw/go_raft/raft"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
 	_ "sync"
 	"time"
-  _ "go_raft/raft"
 )
 
 func main() {
 	allDone := make(chan struct{})
 
-
-  // TODO: create server config file 
+	// TODO: create server config file
 
 	s1 := NewServer("s1", "localhost:30001", 1)
 	s2 := NewServer("s2", "localhost:30002", 2)
