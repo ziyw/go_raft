@@ -10,20 +10,23 @@ type Cluster struct {
 	Servers []*Server
 }
 
-// Parse config file to create servers.
-func (c *Cluster) Config(cfg string) []*Server {
+func NewCluster(cfg string) (*Cluster, error) {
 	lines, err := file.ReadLines(cfg)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	s := []*Server{}
 	for _, l := range lines {
-		p := strings.Split(l, ",")
-		s = append(s, NewServer(p[0], p[1], p[2], p[3]))
+		cur := strings.Trim(l, "\n")
+		if len(cur) == 0 {
+			continue
+		}
+		arg := strings.Split(cur, ",")
+		log.Printf("Current line is %v", arg)
+		s = append(s, NewServer(arg[0], arg[1], arg[2], arg[3]))
 	}
-	c.Servers = s
-	return s
+	return &Cluster{Servers: s}, nil
 }
 
 // Start all servers in cluster.
