@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// TODO: this is not the right way to do this
 func (s *Server) StartListenHeartbeat(ctx context.Context) {
 	select {
 	case <-ctx.Done():
@@ -17,18 +16,20 @@ func (s *Server) StartListenHeartbeat(ctx context.Context) {
 		return
 	case <-time.After(time.Second):
 		log.Printf("Server %s listen timeout, start voting now", s.Addr)
-		// TODO: start voting
+		s.StartVoteRequest(ctx)
 		return
 	}
 }
 
 func (s *Server) StartVoteRequest(ctx context.Context) {
-
+	done := make(chan bool)
+	go s.SendVoteRequest(ctx, done, s.leader)
+	for _, f := range s.followers {
+		go s.SendVoteRequest(ctx, done, f)
+	}
 }
 
-func (s *Server) SendVoteRequest(ctx context.Context, f *Server) chan bool {
-	done := make(chan bool)
-
+func (s *Server) SendVoteRequest(ctx context.Context, done chan bool, f *Server) {
 	conn, err := grpc.Dial(f.Addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
@@ -47,7 +48,6 @@ func (s *Server) SendVoteRequest(ctx context.Context, f *Server) chan bool {
 	client := pb.NewRaftServiceClient(conn)
 	r, err := client.RequestVote(ctx, arg)
 	done <- r.VoteGranted
-	return done
 }
 
 func (s *Server) HandleAppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {
@@ -60,7 +60,6 @@ func (s *Server) HandleAppendEntries(ctx context.Context, arg *pb.AppendArg) (*p
 	res := &pb.AppendRes{Term: term, Success: false}
 
 	if arg.Term < term {
-		// TODO: start voting here
 		return res, fmt.Errorf("Leader out-of-date")
 	}
 

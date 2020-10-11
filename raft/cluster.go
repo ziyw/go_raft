@@ -54,11 +54,8 @@ func NewCluster(cfg string) *Cluster {
 	}
 
 	for _, s := range servers {
-		if s.Role == "f" {
-			s.leader = leader
-		} else {
-			s.followers = followers
-		}
+		s.leader = leader
+		s.followers = followers
 	}
 
 	cluster := Cluster{Servers: servers}
