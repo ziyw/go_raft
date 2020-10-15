@@ -2,7 +2,7 @@ package raft
 
 import (
 	"context"
-	"fmt"
+	_ "fmt"
 	"github.com/ziyw/go_raft/pb"
 	"google.golang.org/grpc"
 	"log"
@@ -63,7 +63,8 @@ func (s *Server) KeepSending(ctx context.Context, cancel context.CancelFunc, add
 	}
 }
 
-// Proto buffer Impl
+// TODO: This is not working yet.
+// Handle client sending query to leader.
 func (s *Server) HandleQuery(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRes, error) {
 	log.Printf("Receive query request %v\n", arg)
 
@@ -71,26 +72,30 @@ func (s *Server) HandleQuery(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRe
 	for i := 0; i < len(s.followers); i++ {
 		s.nextIndex[i] = len(logs)
 	}
-	// TODO: add signal later
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	done := make(chan int)
+
+	done := make(chan struct{})
 	for i := 0; i < len(s.followers); i++ {
 		go s.SendAppendEntries(ctx, done, i)
 	}
 
-	cnt := 0
-	for i := range done {
-		cnt += i
-		if cnt > len(s.followers)/2 {
-			s.AppendLog(&pb.Entry{Term: int64(s.CurrentTerm()), Command: arg.Command})
-			return &pb.QueryRes{Success: true, Reply: "Done"}, nil
+	applied := 0
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Handle query cancelled")
+			return &pb.QueryRes{Success: false, Reply: "Error"}, nil
+		case <-done:
+			if applied > len(s.followers)/2 {
+				s.AppendLog(&pb.Entry{Term: int64(s.CurrentTerm()), Command: arg.Command})
+				return &pb.QueryRes{Success: true, Reply: "Done"}, nil
+			}
 		}
 	}
-	return nil, fmt.Errorf("Handle Query Error")
+
+	return &pb.QueryRes{Success: false, Reply: "Not done"}, nil
 }
 
-func (s *Server) SendAppendEntries(ctx context.Context, done chan int, idx int) {
+func (s *Server) SendAppendEntries(ctx context.Context, done chan struct{}, idx int) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -100,20 +105,30 @@ func (s *Server) SendAppendEntries(ctx context.Context, done chan int, idx int) 
 	}
 	defer conn.Close()
 
-	term := s.CurrentTerm()
 	client := pb.NewRaftServiceClient(conn)
 	r, err := client.AppendEntries(ctx, s.NewAppendArg(idx))
 
 	for {
-		if r.Term > int64(term) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.StopAll:
 			cancel()
-			// TODO: also cancel parent
+			return
+		default:
 		}
-
-		if r.Success {
-			done <- 1
+		if r.Success && r.Term <= int64(s.CurrentTerm()) {
+			done <- struct{}{}
 			return
 		}
+
+		// When getting term bigger than currentTerm, leader should stop everything
+		// and becomes follower next
+		if r.Term > int64(s.CurrentTerm()) {
+			s.StopAll <- struct{}{}
+			return
+		}
+
 		s.nextIndex[idx]--
 		r, err = client.AppendEntries(ctx, s.NewAppendArg(idx))
 	}

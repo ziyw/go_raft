@@ -69,7 +69,8 @@ func (s *Server) Start(ctx context.Context, cancel context.CancelFunc) {
 	if s.Role == "l" {
 		s.nextIndex = make([]int, len(s.followers))
 		s.matchIndex = make([]int, len(s.followers))
-		go s.StartHeartbeat(ctx, cancel)
+		// TODO: add this back later
+		// go s.StartHeartbeat(ctx, cancel)
 	}
 
 	select {
