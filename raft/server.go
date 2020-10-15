@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/ziyw/go_raft/file"
 	"github.com/ziyw/go_raft/pb"
-	_ "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -20,6 +19,8 @@ type Server struct {
 	Id   string
 	Role string
 
+	StopAll chan struct{}
+
 	followers []*Server
 	leader    *Server
 
@@ -32,6 +33,64 @@ type Server struct {
 	termFile string
 	voteFile string
 	logFile  string
+}
+
+func NewServer(name, addr, id, role string) *Server {
+	s := &Server{
+		Name:        name,
+		Addr:        addr,
+		Id:          id,
+		Role:        role,
+		StopAll:     make(chan struct{}),
+		commitIndex: 0,
+		lastApplied: 0,
+		termFile:    fmt.Sprintf("./temp/%s_term", addr),
+		voteFile:    fmt.Sprintf("./temp/%s_vote", addr),
+		logFile:     fmt.Sprintf("./temp/%s_log", addr),
+	}
+	s.SetCurrentTerm(1)
+	s.SetVotedFor("")
+	log := []*pb.Entry{&pb.Entry{Term: 0, Command: ""}}
+	s.SetLog(log)
+	return s
+}
+
+func (s *Server) Start(ctx context.Context, cancel context.CancelFunc) {
+	lis, err := net.Listen("tcp", s.Addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterRaftServiceServer(grpcServer, s)
+
+	log.Printf("Server %s start serving...", s.Addr)
+	go grpcServer.Serve(lis)
+
+	if s.Role == "l" {
+		s.nextIndex = make([]int, len(s.followers))
+		s.matchIndex = make([]int, len(s.followers))
+		go s.StartHeartbeat(ctx, cancel)
+	}
+
+	select {
+	case <-ctx.Done():
+		log.Printf("Server %s stopped", s.Addr)
+		grpcServer.Stop()
+		return
+	}
+}
+
+// Raft interface impl
+func (s *Server) Query(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRes, error) {
+	return s.HandleQuery(ctx, arg)
+}
+
+func (s *Server) RequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes, error) {
+	return s.HandleRequestVote(ctx, arg)
+}
+
+func (s *Server) AppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {
+	return s.HandleAppendEntries(ctx, arg)
 }
 
 // Persist properties
@@ -116,48 +175,4 @@ func (s *Server) SetLog(entries []*pb.Entry) {
 func (s *Server) AppendLog(e *pb.Entry) {
 	l := fmt.Sprintf("%d,%s\n", e.Term, e.Command)
 	file.AppendLines(s.logFile, []string{l})
-}
-
-// Common server methods
-func NewServer(name, addr, id, role string) *Server {
-	s := &Server{
-		Name:        name,
-		Addr:        addr,
-		Id:          id,
-		Role:        role,
-		commitIndex: 0,
-		lastApplied: 0,
-		termFile:    fmt.Sprintf("./temp/%s_term", addr),
-		voteFile:    fmt.Sprintf("./temp/%s_vote", addr),
-		logFile:     fmt.Sprintf("./temp/%s_log", addr),
-	}
-
-	s.SetCurrentTerm(1)
-	s.SetVotedFor("")
-	log := []*pb.Entry{&pb.Entry{Term: 0, Command: ""}}
-	s.SetLog(log)
-	return s
-}
-
-func (s *Server) Start() {
-	lis, err := net.Listen("tcp", s.Addr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	grpcServer := grpc.NewServer()
-	pb.RegisterRaftServiceServer(grpcServer, s)
-	grpcServer.Serve(lis)
-}
-
-// Raft interface impl
-func (s *Server) Query(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRes, error) {
-	return s.HandleQuery(ctx, arg)
-}
-
-func (s *Server) RequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes, error) {
-	return s.HandleRequestVote(ctx, arg)
-}
-
-func (s *Server) AppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {
-	return s.HandleAppendEntries(ctx, arg)
 }

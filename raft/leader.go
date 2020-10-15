@@ -11,52 +11,56 @@ import (
 	"time"
 )
 
-func (s *Server) InitLeader(ctx context.Context) {
-	s.nextIndex = make([]int, len(s.followers))
-	s.matchIndex = make([]int, len(s.followers))
+func (s *Server) StartHeartbeat(ctx context.Context, cancel context.CancelFunc) {
+	log.Println("Start to sending heartbeat")
+	for _, f := range s.followers {
+		go s.KeepSending(ctx, cancel, f.Addr)
+	}
+	select {
+	case <-s.StopAll:
+		log.Printf("Server %s: Stop all\n", s.Addr)
+		cancel()
+		return
+	case <-ctx.Done():
+		log.Printf("Server %s: context cancelled\n", s.Addr)
+		return
+	}
+}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+func (s *Server) StopHeartbeat() {
+	s.StopAll <- struct{}{}
+}
 
+func (s *Server) KeepSending(ctx context.Context, cancel context.CancelFunc, addr string) {
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	client := pb.NewRaftServiceClient(conn)
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
-
-	sendEmpty := func(ctx context.Context, f *Server) {
-		log.Printf("Leader %s send heartbeat\n", s.Addr)
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		conn, err := grpc.Dial(f.Addr, grpc.WithInsecure())
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer conn.Close()
-
-		term := s.CurrentTerm()
-		arg := &pb.AppendArg{
-			Term:    int64(term),
-			Entries: []*pb.Entry{},
-		}
-
-		client := pb.NewRaftServiceClient(conn)
-		reply, err := client.AppendEntries(ctx, arg)
-		if reply.Term > int64(term) {
-			cancel()
-			ctx.Done()
-		}
-	}
-
 	for {
 		select {
-		case <-ticker.C:
-			for _, f := range s.followers {
-				go sendEmpty(ctx, f)
-			}
+		case <-s.StopAll:
+			cancel()
+			return
 		case <-ctx.Done():
-			log.Fatal(ctx.Err())
+			log.Printf("Server %s: context cancelled\n", s.Addr)
+			return
+		case <-ticker.C:
+			log.Printf("Server %s: send heartbeat to %s\n", s.Addr, addr)
+			arg := &pb.AppendArg{
+				Term:    int64(s.CurrentTerm()),
+				Entries: []*pb.Entry{},
+			}
+			reply, _ := client.AppendEntries(ctx, arg)
+			if reply.Term > int64(s.CurrentTerm()) {
+				s.StopAll <- struct{}{}
+			}
 		}
 	}
-
 }
 
 // Proto buffer Impl
