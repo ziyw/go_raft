@@ -14,32 +14,30 @@ import (
 func (s *Server) StartHeartbeat(ctx context.Context, cancel context.CancelFunc) {
 	log.Println("Start to sending heartbeat")
 
-	ticker := time.NewTicker(300 * time.Millisecond)
+	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				for _, f := range s.followers {
-					go s.SendHeartbeat(ctx, cancel, f.Addr)
+	for {
+		select {
+		case <-s.StopLead:
+			log.Printf("Server %s: Leader Action Stopped\n", s.Addr)
+			cancel()
+			return
+		case <-ctx.Done():
+			log.Printf("Server %s: context cancelled\n", s.Addr)
+			return
+		case <-ticker.C:
+			for _, f := range s.cluster {
+				if f.Addr == s.Addr {
+					continue
 				}
+				go s.SendHeartbeat(ctx, cancel, f.Addr)
 			}
 		}
-	}()
-
-	select {
-	case <-s.StopAll:
-		log.Printf("Server %s: Stop all\n", s.Addr)
-		cancel()
-		return
-	case <-ctx.Done():
-		log.Printf("Server %s: context cancelled\n", s.Addr)
-		return
 	}
 }
 
 func (s *Server) StopHeartbeat() {
-	s.StopAll <- struct{}{}
+	s.StopLead <- struct{}{}
 }
 
 func (s *Server) SendHeartbeat(ctx context.Context, cancel context.CancelFunc, addr string) {
@@ -51,6 +49,9 @@ func (s *Server) SendHeartbeat(ctx context.Context, cancel context.CancelFunc, a
 	client := pb.NewRaftServiceClient(conn)
 
 	select {
+	case <-s.StopLead:
+		cancel()
+		return
 	case <-ctx.Done():
 		log.Println("Server %s: context cancelled\n", s.Addr)
 		return
@@ -71,7 +72,14 @@ func (s *Server) SendHeartbeat(ctx context.Context, cancel context.CancelFunc, a
 func (s *Server) HandleRequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes, error) {
 	term := int64(s.CurrentTerm())
 	res := &pb.VoteRes{Term: term, VoteGranted: false}
+
 	if arg.Term < term {
+		if s.Role == "l" {
+			s.StopLead <- struct{}{}
+			s.Role = "f"
+			ctx, cancel := context.WithCancel(context.Background())
+			s.FollowerInit(ctx, cancel)
+		}
 		return res, nil
 	}
 
@@ -88,23 +96,34 @@ func (s *Server) HandleRequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.Vo
 	if lastIndex == int(arg.LastLogIndex) && lastTerm == arg.LastLogTerm {
 		s.SetVotedFor(arg.CandidateId)
 		res.VoteGranted = true
+		s.StopAll <- struct{}{}
+		ctx, cancel := context.WithCancel(context.Background())
+		s.FollowerInit(ctx, cancel)
 		return res, nil
 	}
 	return res, nil
 }
 
 func (s *Server) HandleQuery(ctx context.Context, cancel context.CancelFunc, arg *pb.QueryArg) (*pb.QueryRes, error) {
+
+	if s.Role != "l" {
+		return nil, fmt.Errorf("Server is not a leader")
+	}
+
 	log.Printf("Server %s receive request %v\n", s.Addr, arg)
 	s.AppendLog(&pb.Entry{Term: int64(s.CurrentTerm()), Command: arg.Command})
 
 	logs := s.Log()
-	for i := 0; i < len(s.followers); i++ {
+	for i := 0; i < len(s.cluster); i++ {
 		s.nextIndex[i] = len(logs)
 	}
 
 	// Start send log job
 	done := make(chan *pb.AppendRes)
-	for i, f := range s.followers {
+	for i, f := range s.cluster {
+		if f.Addr == s.Addr {
+			continue
+		}
 		go s.sendAppendRequest(ctx, cancel, i, f, done)
 	}
 
@@ -112,6 +131,8 @@ func (s *Server) HandleQuery(ctx context.Context, cancel context.CancelFunc, arg
 	count := 0
 	for {
 		select {
+		case <-s.StopLead:
+			return nil, fmt.Errorf("Leader is stopped")
 		case <-ctx.Done():
 			return nil, fmt.Errorf("Context cancelled")
 		case r := <-done:
@@ -121,7 +142,7 @@ func (s *Server) HandleQuery(ctx context.Context, cancel context.CancelFunc, arg
 			if r.Success {
 				count++
 			}
-			if count >= len(s.followers) {
+			if count >= len(s.cluster)/2+1 {
 				return &pb.QueryRes{Success: true, Reply: "Done"}, nil
 			}
 		}
@@ -129,7 +150,7 @@ func (s *Server) HandleQuery(ctx context.Context, cancel context.CancelFunc, arg
 }
 
 func (s *Server) sendAppendRequest(ctx context.Context, cancel context.CancelFunc, idx int, follower *Server, done chan *pb.AppendRes) {
-	conn, err := grpc.Dial(s.followers[idx].Addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(s.cluster[idx].Addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -143,17 +164,23 @@ func (s *Server) sendAppendRequest(ctx context.Context, cancel context.CancelFun
 			done <- r
 			return
 		}
+		if r.Term > int64(s.CurrentTerm()) {
+			s.StopLead <- struct{}{}
+			return
+		}
+
 		select {
-		case <-s.StopAll:
+		case <-s.StopLead:
 			cancel()
 			return
 		case <-ctx.Done():
 			log.Printf("Server %s: cancelled", s.Addr)
 			return
 		default:
+			s.nextIndex[idx]--
+			r, err = client.AppendEntries(ctx, s.NewAppendArg(idx))
 		}
-		s.nextIndex[idx]--
-		r, err = client.AppendEntries(ctx, s.NewAppendArg(idx))
+
 	}
 }
 

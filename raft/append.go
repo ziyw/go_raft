@@ -10,6 +10,8 @@ import (
 )
 
 func (s *Server) HandleAppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {
+	s.Heatbeat <- struct{}{}
+
 	term := int64(s.CurrentTerm())
 	if term < 0 {
 		err := fmt.Errorf("Invalid term number")
@@ -23,6 +25,10 @@ func (s *Server) HandleAppendEntries(ctx context.Context, arg *pb.AppendArg) (*p
 	}
 
 	if arg.Term > term {
+		if s.Role == "l" {
+			s.StopLead <- struct{}{}
+			s.Role = "f"
+		}
 		s.SetCurrentTerm(int(arg.Term))
 	}
 

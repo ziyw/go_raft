@@ -40,10 +40,15 @@ func NewCluster(cfg string) {
 	}
 
 	for _, s := range servers {
-		s.leader = leader
-		s.followers = followers
 		ctx, cancel := context.WithCancel(context.Background())
-		go s.Start(ctx, cancel)
+		go s.Start(ctx, cancel, servers)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	leader.LeaderInit(ctx, cancel)
+	for _, f := range followers {
+		ctx, cancel := context.WithCancel(context.Background())
+		f.FollowerInit(ctx, cancel)
 	}
 
 }
