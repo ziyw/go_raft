@@ -70,7 +70,7 @@ func (s *Server) Start(ctx context.Context, cancel context.CancelFunc) {
 		s.nextIndex = make([]int, len(s.followers))
 		s.matchIndex = make([]int, len(s.followers))
 		// TODO: add this back later
-		// go s.StartHeartbeat(ctx, cancel)
+		go s.StartHeartbeat(ctx, cancel)
 	}
 
 	select {
@@ -83,7 +83,8 @@ func (s *Server) Start(ctx context.Context, cancel context.CancelFunc) {
 
 // Raft interface impl
 func (s *Server) Query(ctx context.Context, arg *pb.QueryArg) (*pb.QueryRes, error) {
-	return s.HandleQuery(ctx, arg)
+	ctx, cancel := context.WithCancel(ctx)
+	return s.HandleQuery(ctx, cancel, arg)
 }
 
 func (s *Server) RequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes, error) {

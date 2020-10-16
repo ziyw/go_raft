@@ -26,7 +26,8 @@ func (s *Server) HandleAppendEntries(ctx context.Context, arg *pb.AppendArg) (*p
 		s.SetCurrentTerm(int(arg.Term))
 	}
 
-	if len(arg.Entries) == 0 {
+	// Empty Heartbeat msg
+	if arg.LeaderId == "" {
 		res.Success = true
 		return res, nil
 	}
