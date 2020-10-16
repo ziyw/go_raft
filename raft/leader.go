@@ -67,38 +67,6 @@ func (s *Server) SendHeartbeat(ctx context.Context, cancel context.CancelFunc, a
 	}
 }
 
-func (s *Server) KeepSending(ctx context.Context, cancel context.CancelFunc, addr string) {
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	client := pb.NewRaftServiceClient(conn)
-	ticker := time.NewTicker(300 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-s.StopAll:
-			cancel()
-			return
-		case <-ctx.Done():
-			log.Printf("Server %s: context cancelled\n", s.Addr)
-			return
-		case <-ticker.C:
-			log.Printf("Server %s: send heartbeat to %s\n", s.Addr, addr)
-			arg := &pb.AppendArg{
-				Term:    int64(s.CurrentTerm()),
-				Entries: []*pb.Entry{},
-			}
-			reply, _ := client.AppendEntries(ctx, arg)
-			if reply.Term > int64(s.CurrentTerm()) {
-				s.StopAll <- struct{}{}
-			}
-		}
-	}
-}
-
 // Reply to vote request, grant vote if qualified.
 func (s *Server) HandleRequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes, error) {
 	term := int64(s.CurrentTerm())
@@ -125,7 +93,6 @@ func (s *Server) HandleRequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.Vo
 	return res, nil
 }
 
-// Real handle query
 func (s *Server) HandleQuery(ctx context.Context, cancel context.CancelFunc, arg *pb.QueryArg) (*pb.QueryRes, error) {
 	log.Printf("Server %s receive request %v\n", s.Addr, arg)
 	s.AppendLog(&pb.Entry{Term: int64(s.CurrentTerm()), Command: arg.Command})
