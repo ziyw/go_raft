@@ -18,16 +18,8 @@ type Server struct {
 	Addr string
 	Id   string
 	Role string
-
-	StopFollow chan struct{}
-	StopLead   chan struct{}
-	StopWait   chan struct{}
-
-	StopAll  chan struct{}
-	StopVote chan struct{}
-	Heatbeat chan struct{}
-
-	cluster []*Server
+	// TODO: persist cluster?
+	Cluster []string
 
 	nextIndex  []int
 	matchIndex []int
@@ -38,15 +30,25 @@ type Server struct {
 	termFile string
 	voteFile string
 	logFile  string
+
+	StartFollow chan struct{}
+	StopFollow  chan struct{}
+
+	StartLead chan struct{}
+	StopLead  chan struct{}
+
+	StartElectionTimeout chan struct{}
+	StopElectionTimeout  chan struct{}
+	electionTimeout      int
 }
 
-func NewServer(name, addr, id, role string) *Server {
+func NewServer(name, addr, id, role string, cluster []string) *Server {
 	s := &Server{
 		Name:        name,
 		Addr:        addr,
 		Id:          id,
 		Role:        role,
-		StopAll:     make(chan struct{}),
+		Cluster:     cluster,
 		commitIndex: 0,
 		lastApplied: 0,
 		termFile:    fmt.Sprintf("./temp/%s_term", addr),
@@ -60,9 +62,7 @@ func NewServer(name, addr, id, role string) *Server {
 	return s
 }
 
-func (s *Server) Start(ctx context.Context, cancel context.CancelFunc, cluster []*Server) {
-	s.cluster = cluster
-
+func (s *Server) Start(ctx context.Context, cancel context.CancelFunc) {
 	lis, err := net.Listen("tcp", s.Addr)
 	if err != nil {
 		log.Fatal(err)
@@ -73,24 +73,34 @@ func (s *Server) Start(ctx context.Context, cancel context.CancelFunc, cluster [
 	log.Printf("Server %s start serving...", s.Addr)
 	go grpcServer.Serve(lis)
 
+	go s.RunRaft(ctx, cancel)
+	if s.Role == "f" {
+		s.StartFollow <- struct{}{}
+	} else {
+		s.StartLead <- struct{}{}
+	}
+
 	select {
 	case <-ctx.Done():
-		log.Printf("Server %s stopped", s.Addr)
+		log.Printf("Server %s: cancelled", s.Addr)
 		grpcServer.Stop()
 		return
 	}
 }
 
-func (s *Server) LeaderInit(ctx context.Context, cancel context.CancelFunc) {
-	s.Role = "l"
-	s.nextIndex = make([]int, len(s.cluster))
-	s.matchIndex = make([]int, len(s.cluster))
-	go s.StartHeartbeat(ctx, cancel)
-}
-
-func (s *Server) FollowerInit(ctx context.Context, cancel context.CancelFunc) {
-	s.Role = "f"
-	go s.WaitHeartbeat(ctx, cancel)
+func (s *Server) RunRaft(ctx context.Context, cancel context.CancelFunc) {
+	for {
+		select {
+		case <-s.StartLead:
+			s.nextIndex = make([]int, len(s.Cluster))
+			s.matchIndex = make([]int, len(s.Cluster))
+			go s.StartHeartbeat(ctx, cancel)
+		case <-s.StartFollow:
+			go s.StartTimeout(ctx, cancel)
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // Raft interface impl

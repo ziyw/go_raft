@@ -17,11 +17,11 @@ func NewCluster(cfg string) {
 		panic(err)
 	}
 
-	servers := []*Server{}
-	var leader *Server
-	followers := []*Server{}
+	l := lines[0]
+	cluster := strings.Split(strings.Trim(l, "\n"), ",")
 
-	for _, l := range lines {
+	for i := 1; i < len(lines); i++ {
+		l = lines[i]
 		cur := strings.Trim(l, "\n")
 		if len(cur) == 0 {
 			continue
@@ -30,25 +30,9 @@ func NewCluster(cfg string) {
 		for _, a := range arg {
 			a = strings.Trim(a, " ")
 		}
-		s := NewServer(arg[0], arg[1], arg[2], arg[3])
-		servers = append(servers, s)
-		if s.Role == "f" {
-			followers = append(followers, s)
-		} else {
-			leader = s
-		}
-	}
-
-	for _, s := range servers {
+		s := NewServer(arg[0], arg[1], arg[2], arg[3], cluster)
 		ctx, cancel := context.WithCancel(context.Background())
-		go s.Start(ctx, cancel, servers)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	leader.LeaderInit(ctx, cancel)
-	for _, f := range followers {
-		ctx, cancel := context.WithCancel(context.Background())
-		f.FollowerInit(ctx, cancel)
+		go s.Start(ctx, cancel)
 	}
 
 }

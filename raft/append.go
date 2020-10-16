@@ -10,7 +10,9 @@ import (
 )
 
 func (s *Server) HandleAppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {
-	s.Heatbeat <- struct{}{}
+	if s.Role == "f" {
+		s.StopElectionTimeout <- struct{}{}
+	}
 
 	term := int64(s.CurrentTerm())
 	if term < 0 {
@@ -28,6 +30,8 @@ func (s *Server) HandleAppendEntries(ctx context.Context, arg *pb.AppendArg) (*p
 		if s.Role == "l" {
 			s.StopLead <- struct{}{}
 			s.Role = "f"
+			s.StartFollow <- struct{}{}
+			return nil, fmt.Errorf("Leader out of date")
 		}
 		s.SetCurrentTerm(int(arg.Term))
 	}

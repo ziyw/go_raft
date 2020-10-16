@@ -10,36 +10,30 @@ import (
 	"time"
 )
 
-func (s *Server) WaitHeartbeat(ctx context.Context, cancel context.CancelFunc) {
+func (s *Server) StartTimeout(ctx context.Context, cancel context.CancelFunc) {
 	src := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(src)
 	for {
-		t := time.Duration((r.Int31n(150) + 150)) * time.Millisecond
+		electionTimeout := time.Duration((r.Int31n(150) + 150)) * time.Millisecond
 		select {
 		case <-s.StopFollow:
 			return
-		case <-s.StopWait:
-			continue
 		case <-ctx.Done():
 			log.Printf("Server %s: cancelled", s.Addr)
 			return
-		case <-time.After(t):
+		case <-time.After(electionTimeout):
 			log.Printf("Follower %s waiting timeout, start voting logic", s.Addr)
 			s.SetCurrentTerm(s.CurrentTerm() + 1)
 			go s.StartVoteRequest(ctx, cancel)
-			s.StopFollow <- struct{}{}
-			return
+			continue
 		}
 	}
 }
 
 func (s *Server) StartVoteRequest(ctx context.Context, cancel context.CancelFunc) {
 	done := make(chan *pb.VoteRes)
-	for _, f := range s.cluster {
-		if f.Addr == s.Addr {
-			continue
-		}
-		go s.SendVoteRequest(ctx, cancel, done, f.Addr)
+	for _, addr := range s.Cluster {
+		go s.SendVoteRequest(ctx, cancel, done, addr)
 	}
 
 	count := 0
@@ -55,9 +49,10 @@ func (s *Server) StartVoteRequest(ctx context.Context, cancel context.CancelFunc
 			if r.VoteGranted {
 				count++
 			}
-			if count >= len(s.cluster)/2+1 {
+			if count >= len(s.Cluster)/2+1 {
 				log.Printf("Server %s: change to leader now", s.Addr)
-				s.LeaderInit(ctx, cancel)
+				s.StopFollow <- struct{}{}
+				s.StartLead <- struct{}{}
 				return
 			}
 		}
@@ -66,9 +61,6 @@ func (s *Server) StartVoteRequest(ctx context.Context, cancel context.CancelFunc
 }
 
 func (s *Server) SendVoteRequest(ctx context.Context, cancel context.CancelFunc, done chan *pb.VoteRes, addr string) {
-	if addr == s.Addr {
-		return
-	}
 	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)

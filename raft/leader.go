@@ -26,11 +26,11 @@ func (s *Server) StartHeartbeat(ctx context.Context, cancel context.CancelFunc) 
 			log.Printf("Server %s: context cancelled\n", s.Addr)
 			return
 		case <-ticker.C:
-			for _, f := range s.cluster {
-				if f.Addr == s.Addr {
+			for _, addr := range s.Cluster {
+				if addr == s.Addr {
 					continue
 				}
-				go s.SendHeartbeat(ctx, cancel, f.Addr)
+				go s.SendHeartbeat(ctx, cancel, addr)
 			}
 		}
 	}
@@ -62,7 +62,8 @@ func (s *Server) SendHeartbeat(ctx context.Context, cancel context.CancelFunc, a
 		}
 		reply, _ := client.AppendEntries(ctx, arg)
 		if reply.Term > int64(s.CurrentTerm()) {
-			s.StopAll <- struct{}{}
+			s.StopLead <- struct{}{}
+			s.StartFollow <- struct{}{}
 		}
 		return
 	}
@@ -73,13 +74,14 @@ func (s *Server) HandleRequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.Vo
 	term := int64(s.CurrentTerm())
 	res := &pb.VoteRes{Term: term, VoteGranted: false}
 
+	if arg.CandidateId == s.Addr {
+		res.VoteGranted = true
+		return res, nil
+	}
+
 	if arg.Term < term {
-		if s.Role == "l" {
-			s.StopLead <- struct{}{}
-			s.Role = "f"
-			ctx, cancel := context.WithCancel(context.Background())
-			s.FollowerInit(ctx, cancel)
-		}
+		s.StopLead <- struct{}{}
+		s.StartFollow <- struct{}{}
 		return res, nil
 	}
 
@@ -96,35 +98,30 @@ func (s *Server) HandleRequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.Vo
 	if lastIndex == int(arg.LastLogIndex) && lastTerm == arg.LastLogTerm {
 		s.SetVotedFor(arg.CandidateId)
 		res.VoteGranted = true
-		s.StopAll <- struct{}{}
-		ctx, cancel := context.WithCancel(context.Background())
-		s.FollowerInit(ctx, cancel)
+		s.StopLead <- struct{}{}
+		s.StartFollow <- struct{}{}
 		return res, nil
 	}
 	return res, nil
 }
 
+// TODO: making sure only one leader exist
 func (s *Server) HandleQuery(ctx context.Context, cancel context.CancelFunc, arg *pb.QueryArg) (*pb.QueryRes, error) {
-
-	if s.Role != "l" {
-		return nil, fmt.Errorf("Server is not a leader")
-	}
-
 	log.Printf("Server %s receive request %v\n", s.Addr, arg)
 	s.AppendLog(&pb.Entry{Term: int64(s.CurrentTerm()), Command: arg.Command})
 
 	logs := s.Log()
-	for i := 0; i < len(s.cluster); i++ {
+	for i := 0; i < len(s.Cluster); i++ {
 		s.nextIndex[i] = len(logs)
 	}
 
 	// Start send log job
 	done := make(chan *pb.AppendRes)
-	for i, f := range s.cluster {
-		if f.Addr == s.Addr {
+	for i, addr := range s.Cluster {
+		if addr == s.Addr {
 			continue
 		}
-		go s.sendAppendRequest(ctx, cancel, i, f, done)
+		go s.sendAppendRequest(ctx, cancel, i, done)
 	}
 
 	// Collect result
@@ -142,15 +139,15 @@ func (s *Server) HandleQuery(ctx context.Context, cancel context.CancelFunc, arg
 			if r.Success {
 				count++
 			}
-			if count >= len(s.cluster)/2+1 {
+			if count >= len(s.Cluster)/2+1 {
 				return &pb.QueryRes{Success: true, Reply: "Done"}, nil
 			}
 		}
 	}
 }
 
-func (s *Server) sendAppendRequest(ctx context.Context, cancel context.CancelFunc, idx int, follower *Server, done chan *pb.AppendRes) {
-	conn, err := grpc.Dial(s.cluster[idx].Addr, grpc.WithInsecure())
+func (s *Server) sendAppendRequest(ctx context.Context, cancel context.CancelFunc, idx int, done chan *pb.AppendRes) {
+	conn, err := grpc.Dial(s.Cluster[idx], grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
 	}
