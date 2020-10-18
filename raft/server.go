@@ -14,12 +14,11 @@ import (
 )
 
 type Server struct {
-	Name string
-	Addr string
-	Id   string
-	Role string
-	// TODO: persist cluster?
-	Cluster []string
+	Name    string
+	Addr    string
+	Id      string
+	Role    string
+	Cluster []string // TODO: persist cluster info?
 
 	nextIndex  []int
 	matchIndex []int
@@ -31,15 +30,9 @@ type Server struct {
 	voteFile string
 	logFile  string
 
-	StartFollow chan struct{}
-	StopFollow  chan struct{}
-
-	StartLead chan struct{}
-	StopLead  chan struct{}
-
-	StartElectionTimeout chan struct{}
-	StopElectionTimeout  chan struct{}
-	electionTimeout      int
+	stopHeartbeat       chan struct{}
+	stopElectionTimeout chan struct{}
+	stopFollow          chan struct{}
 }
 
 func NewServer(name, addr, id, role string, cluster []string) *Server {
@@ -59,6 +52,10 @@ func NewServer(name, addr, id, role string, cluster []string) *Server {
 	s.SetVotedFor("")
 	log := []*pb.Entry{&pb.Entry{Term: 0, Command: ""}}
 	s.SetLog(log)
+
+	s.stopHeartbeat = make(chan struct{})
+	s.stopElectionTimeout = make(chan struct{})
+	s.stopFollow = make(chan struct{})
 	return s
 }
 
@@ -70,37 +67,32 @@ func (s *Server) Start(ctx context.Context, cancel context.CancelFunc) {
 	grpcServer := grpc.NewServer()
 	pb.RegisterRaftServiceServer(grpcServer, s)
 
-	log.Printf("Server %s start serving...", s.Addr)
+	log.Printf("Server %s start serving...\n", s.Addr)
 	go grpcServer.Serve(lis)
 
+	log.Printf("Server %s start raft...\n", s.Addr)
 	go s.RunRaft(ctx, cancel)
-	if s.Role == "f" {
-		s.StartFollow <- struct{}{}
-	} else {
-		s.StartLead <- struct{}{}
-	}
+}
 
-	select {
-	case <-ctx.Done():
-		log.Printf("Server %s: cancelled", s.Addr)
-		grpcServer.Stop()
+func (s *Server) RunRaft(ctx context.Context, cancel context.CancelFunc) {
+	if s.Role == "l" {
+		s.StartLeader(ctx, cancel)
+		return
+	}
+	if s.Role == "f" {
+		s.StartFollower(ctx, cancel)
 		return
 	}
 }
 
-func (s *Server) RunRaft(ctx context.Context, cancel context.CancelFunc) {
-	for {
-		select {
-		case <-s.StartLead:
-			s.nextIndex = make([]int, len(s.Cluster))
-			s.matchIndex = make([]int, len(s.Cluster))
-			go s.StartHeartbeat(ctx, cancel)
-		case <-s.StartFollow:
-			go s.StartTimeout(ctx, cancel)
-		case <-ctx.Done():
-			return
-		}
-	}
+func (s *Server) StartLeader(ctx context.Context, cancel context.CancelFunc) {
+	s.nextIndex = make([]int, len(s.Cluster))
+	s.matchIndex = make([]int, len(s.Cluster))
+	go s.StartHeartbeat(ctx, cancel)
+}
+
+func (s *Server) StartFollower(ctx context.Context, cancel context.CancelFunc) {
+	go s.StartElectionTimeout(ctx, cancel)
 }
 
 // Raft interface impl

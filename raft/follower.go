@@ -10,18 +10,33 @@ import (
 	"time"
 )
 
-func (s *Server) StartTimeout(ctx context.Context, cancel context.CancelFunc) {
+func (s *Server) StartElectionTimeout(ctx context.Context, cancel context.CancelFunc) {
 	src := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(src)
+
+	timeout := func() time.Duration {
+		return time.Duration((r.Int31n(150) + 150)) * time.Millisecond
+	}
+
+	ticker := time.NewTicker(timeout())
+	defer ticker.Stop()
+
 	for {
-		electionTimeout := time.Duration((r.Int31n(150) + 150)) * time.Millisecond
+		log.Printf("Server %s: new election timeout round", s.Addr)
 		select {
-		case <-s.StopFollow:
+		case <-s.stopFollow:
+			log.Printf("Server %s: following ended", s.Addr)
+			cancel()
 			return
+
+		case <-s.stopElectionTimeout:
+			ticker.Reset(timeout())
+			log.Printf("Server %s: cancel this round of election timeout", s.Addr)
+			continue
 		case <-ctx.Done():
 			log.Printf("Server %s: cancelled", s.Addr)
 			return
-		case <-time.After(electionTimeout):
+		case <-ticker.C:
 			log.Printf("Follower %s waiting timeout, start voting logic", s.Addr)
 			s.SetCurrentTerm(s.CurrentTerm() + 1)
 			go s.StartVoteRequest(ctx, cancel)
@@ -51,8 +66,8 @@ func (s *Server) StartVoteRequest(ctx context.Context, cancel context.CancelFunc
 			}
 			if count >= len(s.Cluster)/2+1 {
 				log.Printf("Server %s: change to leader now", s.Addr)
-				s.StopFollow <- struct{}{}
-				s.StartLead <- struct{}{}
+				s.stopFollow <- struct{}{}
+				s.StartLeader(ctx, cancel)
 				return
 			}
 		}
