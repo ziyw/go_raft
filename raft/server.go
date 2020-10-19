@@ -27,8 +27,15 @@ type Server struct {
 	logFile  string
 
 	// Leader behavior
-	StopHeartbeat  chan struct{}
-	StartHeartbeat chan struct{}
+	StartHeartbeat   chan struct{}
+	StopHeartbeat    chan struct{}
+	HeartbeatRunning bool
+
+	// Follower behavior
+	StartTimeout    chan struct{}
+	StopTimeout     chan struct{}
+	HeardFromLeader chan struct{}
+	TimeoutRunning  bool
 }
 
 func NewServer(name, addr, id, role string, cluster []string) *Server {
@@ -51,6 +58,12 @@ func NewServer(name, addr, id, role string, cluster []string) *Server {
 
 	s.StartHeartbeat = make(chan struct{})
 	s.StopHeartbeat = make(chan struct{})
+	s.HeartbeatRunning = false
+
+	s.StartTimeout = make(chan struct{})
+	s.StopTimeout = make(chan struct{})
+	s.HeardFromLeader = make(chan struct{})
+	s.TimeoutRunning = false
 	return s
 }
 
@@ -80,6 +93,8 @@ func (s *Server) RunRaft(ctx context.Context, cancel context.CancelFunc) {
 			s.nextIndex = make([]int, len(s.Cluster))
 			s.matchIndex = make([]int, len(s.Cluster))
 			go s.SendingHeartbeat(ctx)
+		case <-s.StartTimeout:
+			go s.StartElectionTimeout(ctx)
 		}
 	}
 }
@@ -96,6 +111,5 @@ func (s *Server) RequestVote(ctx context.Context, arg *pb.VoteArg) (*pb.VoteRes,
 }
 
 func (s *Server) AppendEntries(ctx context.Context, arg *pb.AppendArg) (*pb.AppendRes, error) {
-	// 	return s.HandleAppendEntries(ctx, arg)
-	return nil, nil
+	return s.HandleAppendEntries(ctx, arg)
 }
